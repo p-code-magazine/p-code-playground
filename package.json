@@ -1,7 +1,8 @@
 {
-  "name": "P-Code Playground",
+  "name": "p-code-playground",
   "version": "1.0.0",
-  "description": "",
+  "description": "a simple runtime for p-code",
+  "repository": "https://github.com/h4us/p-code-playground",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
