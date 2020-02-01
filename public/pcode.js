@@ -75,6 +75,10 @@ class PCode {
   }
 
   run(code) {
+    if (code.indexOf('#') == 0) {
+      return;
+    }
+
     this.unpack(code);
 
     let repeatCounter = 0;
