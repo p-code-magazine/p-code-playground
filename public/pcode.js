@@ -79,6 +79,9 @@ class PCode {
       return;
     }
 
+    code = code.replace(/""".*?"""/g, '');
+    // console.log(code);
+
     this.unpack(code);
 
     let repeatCounter = 0;
