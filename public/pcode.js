@@ -75,6 +75,13 @@ class PCode {
   }
 
   run(code) {
+    if (code.indexOf('#') == 0) {
+      return;
+    }
+
+    code = code.replace(/""".*?"""/g, '');
+    // console.log(code);
+
     this.unpack(code);
 
     let repeatCounter = 0;
