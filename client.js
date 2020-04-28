@@ -1,3 +1,7 @@
+import { PCode } from '@p-code-magazine/p-code';
+import io from 'socket.io-client';
+import p5 from 'p5';
+
 $(function() {
   var FADE_TIME = 150; // ms
   var TYPING_TIMER_LENGTH = 400; // ms
@@ -200,18 +204,18 @@ $(function() {
       p.draw = () => {
         for(let i=0; i<pcodes.length; i++) {
           if(pcodes[i].isReady) {
-            if(pcodes[i].isPlaying) {
+            if(pcodes[i].core.isPlaying) {
               if(pcodes[i].core.hasNext()) {
                 let node = pcodes[i].core.tokens[pcodes[i].core.pointer];
                 pcodes[i].core.execute(node);
                 pcodes[i].core.next();
               } else {
-                pcodes[i].isPlaying = false;
+                pcodes[i].core.isPlaying = false;
               }
             } else {
               if(pcodes[i].doLoop) {
                 pcodes[i].core.reset();
-                pcodes[i].isPlaying = true;
+                pcodes[i].core.isPlaying = true;
               } else {
                 pcodes[i].core.stop();
               }

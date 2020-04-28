@@ -1,10 +1,10 @@
 // Setup basic express server
-var express = require('express');
-var app = express();
-var path = require('path');
-var server = require('http').createServer(app);
-var io = require('socket.io')(server);
-var port = process.env.PORT || 3000;
+const express = require('express');
+const app = express();
+const path = require('path');
+const server = require('http').createServer(app);
+const io = require('socket.io')(server);
+const port = process.env.PORT || 3000;
 
 server.listen(port, () => {
   console.log('Server listening at port %d', port);
@@ -52,6 +52,7 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('typing', {
       username: socket.username
     });
+    console.log('typing..', socket.username);
   });
 
   // when the client emits 'stop typing', we broadcast it to others
