@@ -195,7 +195,7 @@ $(function() {
     return COLORS[index];
   }
 
-  const createPCode = (user) => {
+  const createP5 = (user) => {
     let s = (p) => {
       p.setup = () => {
         p.frameRate(30);
@@ -275,14 +275,30 @@ $(function() {
     });
     addParticipantsMessage(data);
 
-    createPCode(data.username);
+    createP5(data.username);
   });
 
   // Whenever the server emits 'new message', update the chat body
   socket.on('new message', (data) => {
     addChatMessage(data);
 
+    const { autoJoin } = data;
     let code = data.message;
+
+    if (autoJoin) {
+      if (pcodes.findIndex((el) => el.user == data.username) < 0) {
+        log(data.username + ' joined (auto)');
+        addParticipantsMessage(data);
+
+        pcodes.push(Object.create({
+          user: data.username,
+          core: new PCode({ enableCommentSyntax: true }),
+          isPlaying: false,
+          isReady: true,
+          doLoop: false
+        }));
+      }
+    }
 
     if(code) {
       for(let i=0; i<pcodes.length; i++) {
@@ -300,7 +316,7 @@ $(function() {
     addParticipantsMessage(data);
     pcodes.push(Object.create({
       user: data.username,
-      core: new PCode(),
+      core: new PCode({ enableCommentSyntax: true }),
       isPlaying: false,
       isReady: true,
       doLoop: false
