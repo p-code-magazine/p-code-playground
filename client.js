@@ -1,3 +1,7 @@
+import { PCode } from '@p-code-magazine/p-code';
+import io from 'socket.io-client';
+import p5 from 'p5';
+
 $(function() {
   var FADE_TIME = 150; // ms
   var TYPING_TIMER_LENGTH = 400; // ms
@@ -191,7 +195,7 @@ $(function() {
     return COLORS[index];
   }
 
-  const createPCode = (user) => {
+  const createP5 = (user) => {
     let s = (p) => {
       p.setup = () => {
         p.frameRate(30);
@@ -200,18 +204,18 @@ $(function() {
       p.draw = () => {
         for(let i=0; i<pcodes.length; i++) {
           if(pcodes[i].isReady) {
-            if(pcodes[i].isPlaying) {
+            if(pcodes[i].core.isPlaying) {
               if(pcodes[i].core.hasNext()) {
                 let node = pcodes[i].core.tokens[pcodes[i].core.pointer];
                 pcodes[i].core.execute(node);
                 pcodes[i].core.next();
               } else {
-                pcodes[i].isPlaying = false;
+                pcodes[i].core.isPlaying = false;
               }
             } else {
               if(pcodes[i].doLoop) {
                 pcodes[i].core.reset();
-                pcodes[i].isPlaying = true;
+                pcodes[i].core.isPlaying = true;
               } else {
                 pcodes[i].core.stop();
               }
@@ -271,14 +275,30 @@ $(function() {
     });
     addParticipantsMessage(data);
 
-    createPCode(data.username);
+    createP5(data.username);
   });
 
   // Whenever the server emits 'new message', update the chat body
   socket.on('new message', (data) => {
     addChatMessage(data);
 
+    const { autoJoin } = data;
     let code = data.message;
+
+    if (autoJoin) {
+      if (pcodes.findIndex((el) => el.user == data.username) < 0) {
+        log(data.username + ' joined (auto)');
+        addParticipantsMessage(data);
+
+        pcodes.push(Object.create({
+          user: data.username,
+          core: new PCode({ enableCommentSyntax: true }),
+          isPlaying: false,
+          isReady: true,
+          doLoop: false
+        }));
+      }
+    }
 
     if(code) {
       for(let i=0; i<pcodes.length; i++) {
@@ -296,7 +316,7 @@ $(function() {
     addParticipantsMessage(data);
     pcodes.push(Object.create({
       user: data.username,
-      core: new PCode(),
+      core: new PCode({ enableCommentSyntax: true }),
       isPlaying: false,
       isReady: true,
       doLoop: false

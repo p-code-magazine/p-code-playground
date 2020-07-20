@@ -5,13 +5,30 @@
   "repository": "https://github.com/h4us/p-code-playground",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "webpack --env.production && node index.js",
+    "dev": "webpack --watch --env.development & nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@p-code-magazine/p-code": "^1.0.0-beta.5",
     "express": "^4.17.1",
-    "socket.io": "^2.3.0"
+    "jquery": "^1.12.4",
+    "p5": "^1.0.0",
+    "socket.io": "^2.3.0",
+    "socket.io-client": "^2.3.0",
+    "winston": "^3.3.3"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.3",
+    "webpack": "^4.43.0",
+    "webpack-cli": "^3.3.11"
+  },
+  "nodemonConfig": {
+    "ignore": [
+      "client.js",
+      "public/*"
+    ]
   }
 }
