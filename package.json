@@ -14,7 +14,7 @@
   "dependencies": {
     "@p-code-magazine/p-code": "^1.0.0-beta.5",
     "express": "^4.17.1",
-    "jquery": "^1.12.4",
+    "jquery": "^3.5.0",
     "p5": "^1.0.0",
     "socket.io": "^2.3.0",
     "socket.io-client": "^2.3.0",
