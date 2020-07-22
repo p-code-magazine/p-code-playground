@@ -1,13 +1,12 @@
-/* Fix user-agent */
-* {
-  box-sizing: border-box;
-}
-
 @font-face {
   font-family: Inconsolata;
   src: url('./Inconsolata-VF.ttf');
   font-weight: normal;
   font-style: normal;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 html {
@@ -27,6 +26,12 @@ html, body, main {
   height: 100%;
   margin: 0;
   padding: 0;
+}
+
+input {
+  -webkit-box-sizing: border-box;
+  -webkit-appearance: none;
+  border-radius: 0;
 }
 
 ul {
@@ -55,12 +60,10 @@ ul {
   border: none;
   border-bottom: 2px solid #fff;
   outline: none;
-  padding-bottom: 15px;
+  padding-bottom: 0.33rem;
+  margin: 0;
+  box-shadow: none;;
   text-align: center;
-  width: 400px;
-
-  /* font-size: 200%; */
-  /* letter-spacing: 3px; */
   font-size: 100%;
   color: #fff;
   font-weight: 100;
@@ -132,15 +135,15 @@ ul {
   min-height: 1.75rem;
   line-height: 1.75rem;
   flex-wrap: nowrap;
+  display: block;
+  position: -webkit-sticky;
   position: sticky;
   top: 0;
   transform: translate(0, -1rem);
   background: rgba(255,255,255,.66);
-  /* // */
   white-space: nowrap;
   overflow-x: hidden;
   text-overflow: ellipsis;
-  /* -- */
 }
 
 .fixed-pane > article.help > header {
@@ -178,6 +181,7 @@ ul {
 .fixed-pane.bottom input {
   width: 100%;
   padding: .3rem .6rem;
+  margin: 0;
   font-size: 1.25rem;
   border: none;
 }
@@ -190,4 +194,18 @@ ul {
 
 canvas {
   display: none;
+}
+
+@media (max-width: 480px) {
+  html {
+    font-size: 100%;
+  }
+
+  .fixed-pane.bottom > * {
+    min-height: 3rem;
+  }
+
+  .fixed-pane.bottom input {
+    font-size: 1rem;
+  }
 }

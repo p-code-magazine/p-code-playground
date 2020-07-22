@@ -29,7 +29,7 @@
 
         <!-- // user history view -->
         <template x-if="showHistory == 'local'">
-          <article class="user">
+          <article class="user local">
             <header>local message history</header>
             <template
               x-for="(item, index) in inputHistory"
@@ -42,7 +42,7 @@
 
         <!-- // server history view -->
         <template x-if="showHistory == 'server'">
-          <article class="user">
+          <article class="user public">
             <header>server message history</header>
             <template
               x-for="(item, index) in serverHistory"

@@ -8,6 +8,7 @@ const COLORS = [
   '#58dc00', '#287b00', '#a8f07a', '#4ae8c4',
   '#3b88eb', '#3824aa', '#a700ff', '#d300e7'
 ];
+const MAX_NUM_INSTANCES = 8;
 
 window.appComponents = {
   // TODO:
@@ -18,6 +19,7 @@ window.appComponents = {
   //     return true;
   //   }
   // }),
+  // --
 
   //
   cmdr() {
@@ -55,7 +57,6 @@ window.appComponents = {
         this.sio = io();
 
         this.sio.on('login', (data) => {
-          console.log('login:', data);
           this.numUsers = data.numUsers;
           this.tabText = `server: online[${data.numUsers}]`;
         });
@@ -69,31 +70,25 @@ window.appComponents = {
         this.sio.on('reply command', (data) => {
           // TODO:
           console.log(data);
+          // --
         });
 
         this.sio.on('user joined', (data) => {
-          console.log('@alipine joined:', data);
           this.numUsers = data.numUsers;
           this.tabText = `server: online[${data.numUsers}]`;
         });
 
         this.sio.on('user left', (data) => {
-          console.log('@alipine left:', data);
           this.numUsers = data.numUsers;
           this.tabText = `server: online[${data.numUsers}]`;
         });
 
         this.sio.on('typing', (data) => {
-          console.log('@alipine typing:', data);
           if (this.typingUsers.findIndex((el) => el == data.username) < 0) {
             this.typingUsers.push(data.username);
           }
 
           this.tabText = `server: online[${data.numUsers}] | ${this.typingUsers.join(',')} typing..`;
-        });
-
-        this.sio.on('stop typing', (data) => {
-          console.log('@alipine stop typing:', data);
         });
 
         this.sio.on('disconnect', () => {
@@ -112,7 +107,7 @@ window.appComponents = {
         // TODO:
         let p;
 
-        if (this.pcodes.length < 4) {
+        if (this.pcodes.length < MAX_NUM_INSTANCES) {
           p = new PCode({
             defaultVolume: -10,
             comment: { enable: true },
@@ -237,9 +232,10 @@ window.appComponents = {
 
       downAction(e) {
         const modifier = e.shiftKey ? 2 : 1;
+        const keycode = e.code || e.key;
         let opMode = 0;
 
-        switch (e.code) {
+        switch (keycode) {
         case 'ArrowUp':
           opMode = -1 * modifier;
           break;
@@ -273,11 +269,31 @@ window.appComponents = {
           this.currentInput = this.serverHistory[this.serverHistoryIndex].message;
           this.showHistory = 'server';
         }
+
+        if (opMode == 1 || opMode == -1 || opMode == 2 || opMode == -2) {
+          this.$nextTick(() => {
+            const q = Math.abs(opMode) == 2 ? '.user.public' : '.user.local';
+            const idx = Math.abs(opMode) == 2 ? this.serverHistoryIndex : this.localHistoryIndex;
+            const sc = document.querySelector(q);
+            const sci = document.querySelectorAll(`${q} .item`)[idx];
+            try {
+              if ((sci.getBoundingClientRect().top - sci.clientHeight) < 0) {
+                sc.scrollTop += sci.getBoundingClientRect().top - sci.clientHeight;
+              } else if((sci.getBoundingClientRect().top + sci.clientHeight) > sc.clientHeight)  {
+                sc.scrollTop += (sci.getBoundingClientRect().top - sc.clientHeight + sci.clientHeight);
+              }
+            } catch(err) {
+              console.error(err);
+            }
+          });
+        }
       },
 
       upAction(e) {
+        const keycode = e.code || e.key;
+
         if (
-          e.code == 'Enter' && this.currentInput.length > 0
+          keycode == 'Enter' && this.currentInput.length > 0
         ) {
           const [isLocalCmd, isServerCmd] = this.checkInputAsCommand();
           this.pushMessage();
@@ -289,16 +305,16 @@ window.appComponents = {
 
           this.currentInput = '';
           this.localHistoryIndex = this.inputHistory.length;
-        } else if(e.code == 'Escape') {
+        } else if(keycode == 'Escape') {
           if (!this.showHelp && this.showHistory) {
             this.showHistory = false;
             this.serverHistoryIndex = this.serverHistory.length;
           }
           if (this.showHelp) this.showHelp = false;
-        } else if (e.code == 'ArrowUp' && e.shiftKey) {
+        } else if (keycode == 'ArrowUp' && e.shiftKey) {
           if (this.serverHistoryIndex == 0) {
             const startFrom = this.serverHistory.length == 0 ? 'now' : this.serverHistory[0].timestamp;
-            console.log('please more server log!', startFrom);
+            // console.log('please more server log!', startFrom);
             this.sio.emit(
               'new message',
               `\$\$ H ${startFrom},10`
@@ -306,15 +322,16 @@ window.appComponents = {
           }
         } else {
           // ...
-          console.log(e.code);
+          // console.log(e);
           // -
           this.sio.emit('typing');
         }
       },
 
       loginAction(e) {
+        const keycode = e.code || e.key;
         if (
-          e.code == 'Enter' && this.userName.length > 0
+          keycode == 'Enter' && this.userName.length > 0
         ) {
           this.currentInput = '';
           (async () => {

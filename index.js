@@ -284,7 +284,8 @@ io.on('connection', (socket) => {
       switch (ret.action) {
       case 'H':
         socket.emit('reply command', {
-          message: `${data} - ${JSON.stringify(ret)}`
+          // message: `${JSON.stringify(ret)}`
+          mssage: ret
         });
         break;
       default:
