@@ -19,26 +19,95 @@ const logsPath = path.resolve(__dirname, 'logs');
 let loggerStartAt = Date.now();
 let currentLogger = false;
 let currentPlayer = false;
+let numUsers = 0;
 
 server.listen(port, () => {
   console.log('Server listening at port %d', port);
 });
 
-// Static
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ...
+const metaAction = async (msg) => {
+  if (msg.indexOf('$$') == 0) {
+    let ret = {
+      status: 'error:SERVER_META_ACTION_NOT_FOUND'
+    };
+
+    if (/^\$\$ [a-zA-Z\-]+ [a-zA-Z0-9\.\-\,]+/.test(msg)) {
+      const cmds = msg.match(/^\$\$ ([a-zA-Z\-]+) ([a-zA-Z0-9\.\-\,]+)/);
+
+      console.log('tested meta action', cmds);
+
+      if (cmds.length > 2) {
+        let args, args_raw;
+
+        switch(cmds[1]) {
+        case 'L':
+          ret = loggerAction(cmds[2]);
+          break;
+        case 'P':
+          args = cmds[2].split(',');
+          ret = await playbackAction(args[0], args[1]);
+          break;
+        case 'H':
+          args_raw = cmds[2].split(',');
+          const [a1 = '', a2 = 1] = args_raw;
+          args = {
+            until: isNaN(a1) ? Date.now() : parseInt(a1),
+            limit: a2
+          };
+          ret = await queryAction(args);
+          break;
+        }
+
+        ret['action'] = cmds[1];
+      }
+    }
+
+    return ret;
+  } else {
+    return false;
+  }
+};
+
+
+const queryAction = async (q) => {
+  let ret = {
+    status: 'error:UNKNOWN'
+  };
+
+  // TODO:
+  if (currentLogger.writable) {
+    const { until = Date.now(), limit = 1 } = q;
+
+    ret = await new Promise((resolve, reject) => {
+      currentLogger.query({
+        until, limit
+      }, (err, results) => {
+        if (err) {
+          reject(Object.assign(ret, { data: err }));
+        }
+
+        resolve(Object.assign(ret, { status: 'founded',  data: results }));
+      });
+    });
+  }
+
+  return ret;
+};
+
 const loggerAction = (tgl) => {
   let ret = {
-    state: 'error'
+    status: 'error:UNKNOWN'
   };
 
   toggle = parseInt(tgl);
 
   if (currentPlayer) {
     return {
-      state: 'error:RUNNING_PLAYBACK'
+      status: 'error:RUNNUG_PLAYBACK'
     };
   }
 
@@ -48,7 +117,7 @@ const loggerAction = (tgl) => {
     currentLogger = false;
 
     ret = {
-      state: 'finished',
+      status: 'finished',
       file: `session-${loggerStartAt}.log`
     };
   } else if (toggle > 0 && !currentLogger) {
@@ -65,11 +134,18 @@ const loggerAction = (tgl) => {
     });
     currentLogger = container.get(`session-${loggerStartAt}`);
     currentLogger.on('finish', () => {
-      console.log('currentLogger done');
+      console.log('currentLogger finished');
     });
 
+    console.log('currentLogger started');
+
     ret = {
-      state: 'started',
+      status: 'started',
+      file: `session-${loggerStartAt}.log`
+    };
+  } else {
+    ret = {
+      status: 'error:LOGGER_ALREADY_STARTED',
       file: `session-${loggerStartAt}.log`
     };
   }
@@ -79,12 +155,12 @@ const loggerAction = (tgl) => {
 
 const playbackAction = async (cue, file = null) => {
   let ret = {
-    state: 'error:INVALID_OPERATION'
+    status: 'error:INVALID_OPERATION'
   };
 
   if (currentLogger) {
     return {
-      state: 'error:RUNNING_LOGGER'
+      status: 'error:RUNNING_LOGGER'
     };
   }
 
@@ -104,19 +180,19 @@ const playbackAction = async (cue, file = null) => {
           if (rdarr.length > 0 && msg.val >= parseInt(el.delta)) {
             //
             switch (el.action) {
-            case 'join':
-              io.sockets.emit('user joined', {
-                username: `[${file}]${el.user}`,
-                numUsers: -1
-              });
-              break;
             case 'message':
-              io.sockets.emit('new message', {
+              io.emit('new message', {
                 username: `[${file}]${el.user}`,
                 message: el.message,
-                numUsers: -1,
+                numUsers: Object.keys(io.sockets.connected).length,
                 autoJoin: true
               });
+              break;
+            case 'join':
+              // io.emit('user joined', {
+              //   username: `[${file}]${el.user}`,
+              //   numUsers: -1
+              // });
               break;
             case 'diconnect':
               // TODO:
@@ -130,7 +206,7 @@ const playbackAction = async (cue, file = null) => {
         }
       });
       ret = {
-        state: 'playing',
+        status: 'playing',
         file
       };
     } else {
@@ -139,12 +215,12 @@ const playbackAction = async (cue, file = null) => {
         currentPlayer = false;
 
         ret = {
-          state: 'stop',
+          status: 'stop',
           file
         };
       } else {
         ret = {
-          state: 'error:NOT_PLAYING'
+          status: 'error:NOT_PLAYING'
         };
       }
     }
@@ -167,45 +243,73 @@ app.post('/logging/playback', async (req, res, next) => {
   res.json(ret);
 });
 
-// Chatroom
-
-var numUsers = 0;
+app.post('/join', async (req, res, next) => {
+  const { username = '' } = req.body;
+  res.json({ status: (username ? true : false) });
+});
 
 io.on('connection', (socket) => {
-  var addedUser = false;
+  let addedUser = false;
 
-  // when the client emits 'new message', this listens and executes
-  socket.on('new message', (data) => {
-    // we tell the client to execute 'new message'
-    if (/^#! [a-z\-]+ [a-z0-9\.\-\,]+/.test(data)) {
-      const cmds = data.match(/^#! ([a-z\-]+) ([a-z0-9\.\-\,]+)/);
-      let ret = false;
+  console.log('clients:', Object.keys(io.sockets.connected).length);
 
-      if (cmds.length > 2) {
-        switch(cmds[1]) {
-        case 'logging':
-          ret = loggerAction(cmds[2]);
-          break;
-        case 'logging-playback':
-          const cpair = cmds[2].split(',');
-          (async () => {
-            ret = await playbackAction(cpair[0], cpair[1]);
-          })();
-          break;
-        }
+  socket.on('add user', (username) => {
+    if (addedUser) return;
+
+    socket.username = username;
+    // ++numUsers;
+    addedUser = true;
+
+    socket.emit('login', {
+      // numUsers: numUsers
+      numUsers: Object.keys(io.sockets.connected).length
+    });
+
+    socket.broadcast.emit('user joined', {
+      username: socket.username,
+      // numUsers: numUsers
+      numUsers: Object.keys(io.sockets.connected).length
+    });
+
+    loggerAction(1);
+  });
+
+  socket.on('new message', async (data) => {
+    let ret = await metaAction(data).catch(console.error);
+
+    console.log(ret);
+
+    if (ret && ret.status.indexOf('error') != 0) {
+      //
+      switch (ret.action) {
+      case 'H':
+        socket.emit('reply command', {
+          message: `${data} - ${JSON.stringify(ret)}`
+        });
+        break;
+      default:
+        // io.emit('new message', {
+        //   username: socket.username,
+        //   message: `${data} - ${JSON.stringify(ret)}`,
+        //   timestamp: Date.now()
+        // });
+        break;
       }
-      socket.broadcast.emit('new message', {
+      //
+    } else if (ret && ret.status.indexOf('error') == 0) {
+      socket.emit('new message', {
         username: socket.username,
         message: `${data} - ${JSON.stringify(ret)}`
       });
     } else {
-      socket.broadcast.emit('new message', {
+      io.emit('new message', {
         username: socket.username,
-        message: data
+        message: data,
+        timestamp: Date.now()
       });
     }
 
-    if (currentLogger.writable) {
+    if (currentLogger.writable && !ret) {
       currentLogger.info(`${data}`, {
         user: socket.username,
         delta: Date.now() - loggerStartAt,
@@ -214,68 +318,34 @@ io.on('connection', (socket) => {
     }
   });
 
-  // when the client emits 'add user', this listens and executes
-  socket.on('add user', (username) => {
-    if (addedUser) return;
-
-    // we store the username in the socket session for this client
-    socket.username = username;
-    ++numUsers;
-    addedUser = true;
-    socket.emit('login', {
-      numUsers: numUsers
-    });
-    // echo globally (all clients) that a person has connected
-    socket.broadcast.emit('user joined', {
-      username: socket.username,
-      numUsers: numUsers
-    });
-
-    if (currentLogger.writable) {
-      currentLogger.info(numUsers, {
-        user: socket.username,
-        delta: Date.now() - loggerStartAt,
-        action: 'join'
-      });
-    }
-  });
-
-  // when the client emits 'typing', we broadcast it to others
   socket.on('typing', () => {
     socket.broadcast.emit('typing', {
-      username: socket.username
+      username: socket.username,
+      numUsers: Object.keys(io.sockets.connected).length
     });
-    console.log('typing..', socket.username);
   });
 
-  // when the client emits 'stop typing', we broadcast it to others
   socket.on('stop typing', () => {
     socket.broadcast.emit('stop typing', {
-      username: socket.username
+      username: socket.username,
+      numUsers: Object.keys(io.sockets.connected).length
     });
   });
 
-  // when the user disconnects.. perform this
   socket.on('disconnect', () => {
-    if (addedUser) {
-      --numUsers;
+    console.log('clients:', Object.keys(io.sockets.connected).length);
 
-      // echo globally that this client has left
+    if (addedUser) {
+      // --numUsers;
+
       socket.broadcast.emit('user left', {
         username: socket.username,
-        numUsers: numUsers
+        // numUsers: numUsers
+        numUsers: Object.keys(io.sockets.connected).length
       });
     }
 
-    if (currentLogger.writable) {
-      currentLogger.info(numUsers, {
-        user: socket.username,
-        delta: Date.now() - loggerStartAt,
-        action: 'diconnect'
-      });
-    }
-
-    if (numUsers == 0 && currentLogger) {
+    if (Object.keys(io.sockets.connected).length == 0 && currentLogger) {
       currentLogger.end();
       container.close(`session-${loggerStartAt}`);
       currentLogger = false;

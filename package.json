@@ -12,18 +12,19 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@p-code-magazine/p-code": "^1.0.0-beta.5",
+    "@h4us/p-code": "https://github.com/h4us/p-code.git#experimental",
+    "@p-code-magazine/p-code": "^1.0.0",
+    "alpinejs": "^2.5.0",
     "express": "^4.17.1",
-    "jquery": "^1.12.4",
     "p5": "^1.0.0",
     "socket.io": "^2.3.0",
     "socket.io-client": "^2.3.0",
     "winston": "^3.3.3"
   },
   "devDependencies": {
-    "nodemon": "^2.0.3",
+    "nodemon": "^2.0.4",
     "webpack": "^4.43.0",
-    "webpack-cli": "^3.3.11"
+    "webpack-cli": "^3.3.12"
   },
   "nodemonConfig": {
     "ignore": [

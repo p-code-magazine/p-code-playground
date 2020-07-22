@@ -10,12 +10,12 @@ const defaults = {
 		filename: '[name].js',
     path: path.resolve(__dirname, 'public'),
   },
-  plugins: [
-    new ProvidePlugin({
-      jQuery: 'jquery',
-      $: 'jquery'
-    })
-  ]
+  // plugins: [
+  //   new ProvidePlugin({
+  //     jQuery: 'jquery',
+  //     $: 'jquery'
+  //   })
+  // ]
 };
 
 const production = Object.assign({}, defaults, {
