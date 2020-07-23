@@ -22,6 +22,7 @@
           <template x-for="(item, index) in serverHistory" :key="index">
             <div class="item">
               <span x-bind:style="`color:${item.color}; padding-right:0.66rem; font-weight:800;`" x-text="item.username"></span>
+              <span x-text="`-> [${item.bus}]`"></span>
               <span x-text="item.message"></span>
             </div>
           </template>
@@ -63,18 +64,72 @@
         <!-- // help -->
         <article class="help">
           <header>help</header>
-          <div class="item">
-            retype <span class="cmdhelp">'$ help'</span> or <span class="cmdhelp">'ESC'</span> key to close this pane</span>
-          </div>
-          <div class="item">
-            <span class="cmdhelp">'PgUp' / 'PgDn'</span>
-            <span> key recalls local history, back / forward</span><br>
-            (* w/ history pane,  <span class="cmdhelp">'ESC'</span> key to close this pane)
-          </div>
-          <div class="item">
-            <span class="cmdhelp">'SHIFT' + 'PgUp' / 'SHIFT' + 'PgDn'</span>
-            <span> key recalls server history, back / forward</span><br>
-            (* w/ history pane, <span class="cmdhelp">'ESC'</span> key to close this pane)
+          <section>
+            <h3>Key controls</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>key</th>
+                  <th>description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="cmdhelp">'PgUp' / 'PgDn'</td>
+                  <td>
+                    <p>It recalls local history, back & forward.</p>
+                    <p>(* w/ opening history pane,  <span class="cmdhelp">'ESC'</span> key to close this pane)</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="cmdhelp">'SHIFT' + 'PgUp' / 'SHIFT' + 'PgDn'</td>
+                  <td>
+                    <p>It recalls local history, back & forward.</p>
+                    <p>(* w/ opening history pane,  <span class="cmdhelp">'ESC'</span> key to close this pane)</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+          <section>
+            <h3>Local commands</h3>
+            <p>Prefix is <span class="cmdhelp">'$ '</span></p>
+            <table>
+              <thead>
+                <tr>
+                  <th>command format</th>
+                  <th>[arguments]</th>
+                  <th>description</th>
+                  <th>example</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="cmdhelp">$ help</td>
+                  <td>None</td>
+                  <td>
+                    <p>Show this help.</p>
+                  </td>
+                  <td class="cmdhelp">$ help</td>
+                </tr>
+                <tr>
+                  <td class="cmdhelp">$ bus [0-7|auto]</td>
+                  <td>0,1,2,3,4,5,6,7 or auto</td>
+                  <td>
+                    <p>Set target audio bus.</p>
+                    <p>P-Code[s] are running on 8 individual buses.</p>
+                    <p>You can choose which one to use for evaluting your code.</p>
+                    <p>Default value is 'auto'</p>
+                  </td>
+                  <td class="cmdhelp">$ bus 0<br> $ bus 1<br>$ bus auto</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <div class="item" style="margin-top:.75rem;">
+            <p> P-Code's language specification is <a href="https://github.com/p-code-magazine/p-code/blob/master/LANGSPEC.md" target="_blank">here</a></p>
+            <p>retype <span class="cmdhelp">'$ help'</span> or <span class="cmdhelp">'ESC'</span> key to close this pane</span></p>
           </div>
         </article>
       </div>

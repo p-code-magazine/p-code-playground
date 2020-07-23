@@ -275,12 +275,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('new message', async (data) => {
-    let ret = await metaAction(data).catch(console.error);
-
-    console.log(ret);
+    //! w/ backword compatiblity
+    const { message, ...options } = (typeof data == 'string') ? { message: data } : data;
+    const ret = await metaAction(message).catch(console.error);
 
     if (ret && ret.status.indexOf('error') != 0) {
-      //
+      //! server meta command
       switch (ret.action) {
       case 'H':
         socket.emit('reply command', {
@@ -289,29 +289,29 @@ io.on('connection', (socket) => {
         });
         break;
       default:
-        // io.emit('new message', {
-        //   username: socket.username,
-        //   message: `${data} - ${JSON.stringify(ret)}`,
-        //   timestamp: Date.now()
-        // });
+        // TODO:
         break;
       }
       //
     } else if (ret && ret.status.indexOf('error') == 0) {
+      //! server meta command w/ error
       socket.emit('new message', {
         username: socket.username,
-        message: `${data} - ${JSON.stringify(ret)}`
+        message: `${message} - ${JSON.stringify(ret)}`
       });
     } else {
+      //! PCode
+      const { bus = 0 } = options;
       io.emit('new message', {
         username: socket.username,
-        message: data,
+        message,
+        bus,
         timestamp: Date.now()
       });
     }
 
     if (currentLogger.writable && !ret) {
-      currentLogger.info(`${data}`, {
+      currentLogger.info(`${message}`, {
         user: socket.username,
         delta: Date.now() - loggerStartAt,
         action: 'message'
@@ -326,22 +326,19 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('stop typing', () => {
-    socket.broadcast.emit('stop typing', {
-      username: socket.username,
-      numUsers: Object.keys(io.sockets.connected).length
-    });
-  });
+  // socket.on('stop typing', () => {
+  //   socket.broadcast.emit('stop typing', {
+  //     username: socket.username,
+  //     numUsers: Object.keys(io.sockets.connected).length
+  //   });
+  // });
 
   socket.on('disconnect', () => {
-    console.log('clients:', Object.keys(io.sockets.connected).length);
+    console.log('active clients:', Object.keys(io.sockets.connected).length);
 
     if (addedUser) {
-      // --numUsers;
-
       socket.broadcast.emit('user left', {
         username: socket.username,
-        // numUsers: numUsers
         numUsers: Object.keys(io.sockets.connected).length
       });
     }

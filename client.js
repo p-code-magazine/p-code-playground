@@ -11,20 +11,10 @@ const COLORS = [
 const MAX_NUM_INSTANCES = 8;
 
 window.appComponents = {
-  // TODO:
-  // sharedStore: new Proxy({
-  //   helpActive: false
-  // }, {
-  //   set(t, prop, v) {
-  //     return true;
-  //   }
-  // }),
-  // --
-
-  //
   cmdr() {
     return {
       currentInput: '',
+      bus: 'auto',
       inputHistory: [],
       serverHistory: [],
       localHistoryIndex: 0,
@@ -38,7 +28,7 @@ window.appComponents = {
       isLogin: false,
       //
       pcodes: [],
-      p5s: [],
+      p5s: null,
       userName: '',
       sio: null,
 
@@ -53,36 +43,70 @@ window.appComponents = {
         }, 1500);
       },
 
-      initSocket() {
+      initCmdr() {
+        for (let i = 0; i < MAX_NUM_INSTANCES; i++) {
+          const p = new PCode({
+            defaultVolume: -10,
+            comment: { enable: true },
+            meta: { enable: true }
+          });
+          this.pcodes.push(p);
+        }
+
+        const ctx = (p) => {
+          //! embed in p5
+          const _pcodes = this.pcodes;
+
+          p.setup = () => {
+            p.frameRate(30);
+          };
+
+          p.draw = () => {
+            for(let el of _pcodes) {
+              if(el.isPlaying) {
+                if(el.hasNext()) {
+                  let node = el.tokens[el.pointer];
+                  el.execute(node);
+                  el.next();
+                } else {
+                  el.isPlaying = false;
+                }
+              } else {
+                if(el.doLoop) {
+                  el.reset();
+                  el.isPlaying = true;
+                } else {
+                  el.stop();
+                }
+              }
+            }
+          };
+        };
+
+        this.p5s = new p5(ctx);
         this.sio = io();
 
         this.sio.on('login', (data) => {
           this.numUsers = data.numUsers;
           this.tabText = `server: online[${data.numUsers}]`;
         });
-
         this.sio.on('new message', (data) => {
           if (this.isLogin) {
             this.pushMessage('server', data);
           }
         });
-
         this.sio.on('reply command', (data) => {
           // TODO:
           console.log(data);
-          // --
         });
-
         this.sio.on('user joined', (data) => {
           this.numUsers = data.numUsers;
           this.tabText = `server: online[${data.numUsers}]`;
         });
-
         this.sio.on('user left', (data) => {
           this.numUsers = data.numUsers;
           this.tabText = `server: online[${data.numUsers}]`;
         });
-
         this.sio.on('typing', (data) => {
           if (this.typingUsers.findIndex((el) => el == data.username) < 0) {
             this.typingUsers.push(data.username);
@@ -90,78 +114,22 @@ window.appComponents = {
 
           this.tabText = `server: online[${data.numUsers}] | ${this.typingUsers.join(',')} typing..`;
         });
-
         this.sio.on('disconnect', () => {
           console.info('you have been disconnected');
         });
-
         this.sio.on('reconnect', () => {
-          console.info('you have been reconnected');
           if (this.userName.length > 0) {
             this.sio.emit('add user', this.userName);
           }
+          console.info('you have been reconnected');
         });
+
+        this.sio.emit('add user', this.userName);
+        this.isLogin = true;
       },
 
-      runPCode(code) {
-        // TODO:
-        let p;
-
-        if (this.pcodes.length < MAX_NUM_INSTANCES) {
-          p = new PCode({
-            defaultVolume: -10,
-            comment: { enable: true },
-            meta: { enable: true }
-          });
-          this.pcodes.push(p);
-
-          let _pcodes = this.pcodes;
-          let s = (p) => {
-            p.setup = () => {
-              p.frameRate(30);
-            };
-
-            p.draw = () => {
-              for(let el of _pcodes) {
-                if(el.isPlaying) {
-                  if(el.hasNext()) {
-                    let node = el.tokens[el.pointer];
-                    el.execute(node);
-                    el.next();
-                  } else {
-                    el.isPlaying = false;
-                  }
-                } else {
-                  if(el.doLoop) {
-                    el.reset();
-                    el.isPlaying = true;
-                  } else {
-                    el.stop();
-                  }
-                }
-              }
-            };
-          };
-
-          this.p5s.push(new p5(s));
-        } else {
-          //
-          let ci = 0;
-          p = this.pcodes[0];
-
-          for (let i in this.pcodes) {
-            if (i > 0) {
-              if (p.lastEvaluateTime > this.pcodes[i].lastEvaluateTime) {
-                p = this.pcodes[i];
-                ci = i;
-              }
-            }
-          }
-
-          console.log(`run on @ ${ci} of ${this.pcodes.length}`);
-        }
-
-        p.run(code);
+      runPCode(code, bus = 0) {
+        this.pcodes[bus].run(code);
       },
 
       getUsernameColor(username) {
@@ -171,6 +139,26 @@ window.appComponents = {
         }
         const index = Math.abs(hash % COLORS.length);
         return COLORS[index];
+      },
+
+      selectBus() {
+        let b = 0;
+
+        if (this.bus == 'auto') {
+          let p = this.pcodes[0];
+          for (let i in this.pcodes) {
+            if (i > 0) {
+              if (p.lastEvaluateTime > this.pcodes[i].lastEvaluateTime) {
+                p = this.pcodes[i];
+                b = i;
+              }
+            }
+          }
+        } else {
+          b = this.bus;
+        }
+
+        return b;
       },
 
       pushMessage(target = 'local', data = {}) {
@@ -184,13 +172,17 @@ window.appComponents = {
             }
           }, 100);
         } else if (target == 'server') {
-          const { username, message, timestamp } = data;
+          const {
+            username, message, timestamp,
+            bus = Math.ceil(Math.random() * 8)
+          } = data;
           const color = this.getUsernameColor(username);
 
           this.serverHistory.push({
-            username, message, timestamp, color
+            username, message, timestamp, color, bus
           });
-          this.runPCode(message);
+          this.runPCode(message, bus);
+
           setTimeout(() => {
             const sc = document.querySelectorAll('.server')[0];
             const sb = document.querySelectorAll('.fixed-pane.bottom')[0];
@@ -208,9 +200,19 @@ window.appComponents = {
         if (isServer) {
           // TODO:
         } else if (isLocal) {
-          // TODO:
+          //! show help
           if (this.currentInput.indexOf('$ help') == 0) {
             this.showHelp = !this.showHelp;
+          }
+          //! set audio bus
+          if (this.currentInput.indexOf('$ bus') == 0) {
+            const bVal = this.currentInput.replace('$ bus ', '');
+            const bNum = parseInt(bVal);
+            if (!isNaN(bNum) && bNum < this.pcodes.length && bNum >= 0) {
+              this.bus = bNum;
+            } else if (bVal == 'auto') {
+              this.bus = 'auto';
+            }
           }
         }
 
@@ -299,8 +301,12 @@ window.appComponents = {
           this.pushMessage();
 
           if (!isLocalCmd) {
-            this.sio.emit('new message', this.currentInput);
-            this.sio.emit('stop typing');
+            this.sio.emit(
+              'new message', {
+                message: this.currentInput,
+                bus: this.selectBus()
+              }
+            );
           }
 
           this.currentInput = '';
@@ -347,9 +353,7 @@ window.appComponents = {
               const { status } = rjson;
 
               if (status) {
-                this.initSocket();
-                this.sio.emit('add user', this.userName);
-                this.isLogin = true;
+                this.initCmdr();
               }
             } catch(err) {
               console.error(err);
@@ -360,6 +364,3 @@ window.appComponents = {
     };
   }
 };
-
-// window.addEventListener('DOMContentLoaded', () => {
-// });
