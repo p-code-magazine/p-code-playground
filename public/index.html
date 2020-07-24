@@ -21,7 +21,9 @@
           <header x-text="tabText"></header>
           <template x-for="(item, index) in serverHistory" :key="index">
             <div class="item">
-              <span x-bind:style="`color:${item.color}; padding-right:0.66rem; font-weight:800;`" x-text="item.username"></span>
+              <span class="username"
+                x-bind:style="`color:${item.color};`"
+                x-text="item.username"></span>
               <span x-text="`-> [${item.bus}]`"></span>
               <span x-text="item.message"></span>
             </div>
@@ -50,7 +52,9 @@
               :key="index">
               <div class="item"
                 x-bind:class="{ item: true, hl: index == serverHistoryIndex }">
-                <span x-bind:style="`color:${item.color}; padding-right:0.66rem; font-weight:800;`" x-text="item.username"></span>
+                <span class="username"
+                  x-bind:style="`color:${item.color};`"
+                  x-text="item.username"></span>
                 <span x-text="item.message"></span>
               </div>
             </template>
@@ -75,17 +79,17 @@
               </thead>
               <tbody>
                 <tr>
-                  <td class="cmdhelp">'PgUp' / 'PgDn'</td>
+                  <td class="cmdhelp">'↑' / '↓'</td>
                   <td>
-                    <p>It recalls local history, back & forward.</p>
-                    <p>(* w/ opening history pane,  <span class="cmdhelp">'ESC'</span> key to close this pane)</p>
+                    <p>Recall local history, back & forward.</p>
+                    <p>(* <span class="cmdhelp">'ESC'</span> key to close the history pane)</p>
                   </td>
                 </tr>
                 <tr>
-                  <td class="cmdhelp">'SHIFT' + 'PgUp' / 'SHIFT' + 'PgDn'</td>
+                  <td class="cmdhelp">'SHIFT' + '↑' / 'SHIFT' + '↓'</td>
                   <td>
-                    <p>It recalls server history, back & forward.</p>
-                    <p>(* w/ opening history pane,  <span class="cmdhelp">'ESC'</span> key to close this pane)</p>
+                    <p>Recall server history, back & forward.</p>
+                    <p>(* <span class="cmdhelp">'ESC'</span> key to close the history pane)</p>
                   </td>
                 </tr>
               </tbody>
@@ -93,7 +97,7 @@
           </section>
           <section>
             <h3>Local commands</h3>
-            <p>Prefix is <span class="cmdhelp">'$ '</span></p>
+            <p>These commands are not sent to the public timeline. </p>
             <table>
               <thead>
                 <tr>
@@ -116,10 +120,10 @@
                   <td class="cmdhelp">$ bus [0-7|auto]</td>
                   <td>0,1,2,3,4,5,6,7 or auto</td>
                   <td>
-                    <p>Set target audio bus.</p>
-                    <p>P-Code[s] are running on 8 individual buses.</p>
-                    <p>You can choose which one to use for evaluating your code.</p>
-                    <p>Default value is 'auto'</p>
+                    <p>Set the target audio bus.</p>
+                    <p>P-Code Playground has individual buses.</p>
+                    <p>You can choose it to run your code.</p>
+                    <p>The default is 'auto'</p>
                   </td>
                   <td class="cmdhelp">$ bus 0<br> $ bus 1<br>$ bus auto</td>
                 </tr>
@@ -128,7 +132,7 @@
           </section>
 
           <div class="item" style="margin-top:.75rem;">
-            <p> P-Code's language specification is <a href="https://github.com/p-code-magazine/p-code/blob/master/LANGSPEC.md" target="_blank">here</a></p>
+            <p> P-Code language specification is <a href="https://github.com/p-code-magazine/p-code/blob/master/LANGSPEC.md" target="_blank">here</a></p>
             <p>retype <span class="cmdhelp">'$ help'</span> or <span class="cmdhelp">'ESC'</span> key to close this pane</span></p>
           </div>
         </article>
@@ -136,6 +140,7 @@
 
       <div class="fixed-pane bottom">
         <section>
+          <label x-text="`-> [${bus == 'auto' ? '?' : bus}]`"></label>
           <input placeholder="Please type '$ help' here for usages" type="text"
             x-model="currentInput"
             x-on:keydown="downAction($event)"

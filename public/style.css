@@ -169,12 +169,26 @@ ul {
   color: #fff;
 }
 
+.fixed-pane.vertical > article .item .username {
+  padding-right: 0.33rem;
+  font-weight: 800;
+}
+
 .fixed-pane.bottom > * {
   width: 100%;
   min-height: 2rem;
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+
+.fixed-pane.bottom label {
+  width: 4.5rem;
+  padding: 0 .25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
 }
 
 .fixed-pane.bottom input {
