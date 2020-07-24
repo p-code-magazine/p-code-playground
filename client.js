@@ -47,7 +47,7 @@ window.appComponents = {
       initCmdr() {
         for (let i = 0; i < MAX_NUM_INSTANCES; i++) {
           const p = new PCode({
-            defaultVolume: -10,
+            defaultVolume: -12,
             comment: { enable: true },
             meta: { enable: true }
           });
@@ -95,8 +95,15 @@ window.appComponents = {
           this.pushMessage('server', data);
         });
         this.sio.on('reply command', (data) => {
-          // TODO:
-          console.log(data);
+          const { message = [], action } = data;
+          if (action == 'H' && message.length > 0) {
+            this.serverHistory.splice(0, 0, ...message.reverse());
+            this.serverHistoryIndex = message.length - 1;
+            this.showHistory = 'server';
+          }
+
+          if (action == 'P' && message.length > 0) {
+          }
         });
         this.sio.on('user joined', (data) => {
           this.numUsers = data.numUsers;
@@ -128,7 +135,10 @@ window.appComponents = {
       },
 
       runPCode(code, bus = 0) {
-        this.pcodes[bus].run(code);
+        const _bus = parseInt(bus);
+        if (_bus >= 0 && _bus < this.pcodes.length) {
+          this.pcodes[bus].run(code);
+        }
       },
 
       getUsernameColor(username) {
@@ -171,11 +181,13 @@ window.appComponents = {
             }
           }, 100);
         } else if (target == 'server') {
-          const {
+          let {
             username, message, timestamp,
-            bus = Math.ceil(Math.random() * 8)
+            bus = 0,
+            color = ''
           } = data;
-          const color = this.getUsernameColor(username);
+
+          color = (color.length == '') ? this.getUsernameColor(username) : color;
 
           this.serverHistory.push({
             username, message, timestamp, color, bus
@@ -187,8 +199,6 @@ window.appComponents = {
             const sb = document.querySelectorAll('.fixed-pane.bottom')[0];
             sc.scrollTop = sc.scrollHeight - (sc.clientHeight + sc.getBoundingClientRect().top) + sb.clientHeight;
           }, 100);
-        } else if (target == 'typing') {
-          // TODO
         }
       },
 
@@ -214,10 +224,6 @@ window.appComponents = {
             }
           }
         }
-
-        console.log(
-          `local meta?${isLocal}, server meta?${isServer}`
-        );
 
         return [isLocal, isServer];
       },
@@ -267,44 +273,44 @@ window.appComponents = {
           break;
         }
 
-        if (opMode == 1 && this.localHistoryIndex < this.inputHistory.length - 1) {
-          this.localHistoryIndex ++;
-          this.currentInput = this.inputHistory[this.localHistoryIndex];
-          this.showHistory = 'local';
-        }
-
-        if (opMode == -1 && this.localHistoryIndex > 0) {
-          this.localHistoryIndex --;
-          this.currentInput = this.inputHistory[this.localHistoryIndex];
-          this.showHistory = 'local';
-        }
-
-        if (opMode == 2 && this.serverHistoryIndex < this.serverHistory.length - 1) {
-          this.serverHistoryIndex ++;
-          this.currentInput = this.serverHistory[this.serverHistoryIndex].message;
-          this.showHistory = 'server';
-        }
-
-        if (opMode == -2 && this.serverHistoryIndex > 0) {
-          this.serverHistoryIndex --;
-          this.currentInput = this.serverHistory[this.serverHistoryIndex].message;
-          this.showHistory = 'server';
-        }
-
         if (opMode == 1 || opMode == -1 || opMode == 2 || opMode == -2) {
+          const q = (modifier == 2) ? '.user.public' : '.user.local';
+          const hl = (modifier == 2) ? this.serverHistory.length : this.inputHistory.length;
+          let idx = 0;
+
+          if (hl == 0) { return; }
+          this.showHistory = (modifier == 2) ? 'server' : 'local';
+
+          if (opMode == 1) {
+            this.localHistoryIndex = Math.min(this.inputHistory.length - 1, this.localHistoryIndex + 1);
+            this.currentInput = this.inputHistory[this.localHistoryIndex];
+          }
+          if (opMode == -1) {
+            this.localHistoryIndex = Math.max(0, this.localHistoryIndex - 1);
+            this.currentInput = this.inputHistory[this.localHistoryIndex];
+          }
+
+          if (opMode == 2) {
+            this.serverHistoryIndex = Math.min(this.serverHistory.length - 1, this.serverHistoryIndex + 1);
+            this.currentInput = this.serverHistory[this.serverHistoryIndex].message;
+          }
+          if (opMode == -2) {
+            this.serverHistoryIndex = Math.max(0, this.serverHistoryIndex - 1);
+            this.currentInput = this.serverHistory[this.serverHistoryIndex].message;
+          }
+
+          idx = (modifier == 2) ? this.serverHistoryIndex : this.localHistoryIndex;
+
           this.$nextTick(() => {
-            const q = Math.abs(opMode) == 2 ? '.user.public' : '.user.local';
-            const idx = Math.abs(opMode) == 2 ? this.serverHistoryIndex : this.localHistoryIndex;
             const sc = document.querySelector(q);
-            const sci = document.querySelectorAll(`${q} .item`)[idx];
-            try {
+            const scl = document.querySelectorAll(`${q} .item`);
+            if (scl.length > 0) {
+              const sci = scl[idx];
               if ((sci.getBoundingClientRect().top - sci.clientHeight) < 0) {
                 sc.scrollTop += sci.getBoundingClientRect().top - sci.clientHeight;
               } else if((sci.getBoundingClientRect().top + sci.clientHeight) > sc.clientHeight)  {
                 sc.scrollTop += (sci.getBoundingClientRect().top - sc.clientHeight + sci.clientHeight);
               }
-            } catch(err) {
-              console.error(err);
             }
           });
         }
@@ -321,11 +327,10 @@ window.appComponents = {
           if (this.showHelp) this.showHelp = false;
         } else if (keycode == 'ArrowUp' && e.shiftKey) {
           if (this.serverHistoryIndex == 0) {
-            const startFrom = this.serverHistory.length == 0 ? 'now' : this.serverHistory[0].timestamp;
-            // console.log('please more server log!', startFrom);
+            const untilTo = (this.serverHistory.length == 0) ? 'now' : this.serverHistory[0].timestamp;
             this.sio.emit(
               'new message',
-              `\$\$ H ${startFrom},10`
+              `\$\$ H ${untilTo},10`
             );
           }
         } else {

@@ -6,7 +6,7 @@ const server = require('http').createServer(app);
 const io = require('socket.io')(server);
 const port = process.env.PORT || 3000;
 
-const { readFile } = require('fs').promises;
+const { readFile, readdir } = require('fs').promises;
 const { Worker } = require('worker_threads');
 
 const winston = require('winston');
@@ -36,7 +36,7 @@ const metaAction = async (msg) => {
     };
 
     if (/^\$\$ [a-zA-Z\-]+ [a-zA-Z0-9\.\-\,]+/.test(msg)) {
-      const cmds = msg.match(/^\$\$ ([a-zA-Z\-]+) ([a-zA-Z0-9\.\-\,]+)/);
+      const cmds = msg.match(/^\$\$ ([a-zA-Z\-]+) ([a-zA-Z0-9\.\-\,\:]+)/);
 
       console.log('tested meta action', cmds);
 
@@ -44,8 +44,11 @@ const metaAction = async (msg) => {
         let args, args_raw;
 
         switch(cmds[1]) {
+        case 'S':
+          ret = await showLogsAction(cmds[2]);
+          break;
         case 'L':
-          ret = loggerAction(cmds[2]);
+          ret = startLoggerAction(cmds[2]);
           break;
         case 'P':
           args = cmds[2].split(',');
@@ -54,8 +57,9 @@ const metaAction = async (msg) => {
         case 'H':
           args_raw = cmds[2].split(',');
           const [a1 = '', a2 = 1] = args_raw;
+          const dt = new Date(a1);
           args = {
-            until: isNaN(a1) ? Date.now() : parseInt(a1),
+            until: (dt.toString() === 'Invalid Date') ? Date.now() : (dt - 1),
             limit: a2
           };
           ret = await queryAction(args);
@@ -73,6 +77,25 @@ const metaAction = async (msg) => {
 };
 
 
+const showLogsAction = async (ext = '.log') => {
+  let ret = {
+    status: 'error:INVALID_OPERATION'
+  };
+
+  try {
+    const fd = await readdir(`./logs`).catch(console.error);
+    const r = new RegExp(`^.+\.${ext}$`);
+    ret = {
+      status: 'founded',
+      data: fd.filter((el) => r.test(el))
+    };
+  } catch(err) {
+    console.error(err);
+  }
+
+  return ret;
+};
+
 const queryAction = async (q) => {
   let ret = {
     status: 'error:UNKNOWN'
@@ -81,11 +104,14 @@ const queryAction = async (q) => {
   // TODO:
   if (currentLogger.writable) {
     const { until = Date.now(), limit = 1 } = q;
+    const qoptions = {
+      from: new Date(loggerStartAt),
+      until: new Date(until),
+      limit
+    };
 
     ret = await new Promise((resolve, reject) => {
-      currentLogger.query({
-        until, limit
-      }, (err, results) => {
+      currentLogger.query(qoptions, (err, results) => {
         if (err) {
           reject(Object.assign(ret, { data: err }));
         }
@@ -98,7 +124,7 @@ const queryAction = async (q) => {
   return ret;
 };
 
-const loggerAction = (tgl) => {
+const startLoggerAction = (tgl) => {
   let ret = {
     status: 'error:UNKNOWN'
   };
@@ -124,7 +150,8 @@ const loggerAction = (tgl) => {
     loggerStartAt = Date.now();
     container.add(`session-${loggerStartAt}`, {
       format: combine(
-        timestamp({ format: 'YYYY-MM-DD hh:mm:ss.SSS' }),
+        // timestamp({ format: 'YYYY-MM-DD hh:mm:ss.SSS' }),
+        timestamp(),
         json()
       ),
       transports: [
@@ -157,15 +184,10 @@ const playbackAction = async (cue, file = null) => {
   let ret = {
     status: 'error:INVALID_OPERATION'
   };
-
-  if (currentLogger) {
-    return {
-      status: 'error:RUNNING_LOGGER'
-    };
-  }
+  const ci = parseInt(cue);
 
   try {
-    if (parseInt(cue) == 1) {
+    if (ci == 1 && !currentPlayer) {
       const fp = await readFile(`./logs/${file}`).catch(console.error);
 
       let d = fp.toString().split('\n');
@@ -174,55 +196,45 @@ const playbackAction = async (cue, file = null) => {
       let rdarr = darr.reverse();
       let el = rdarr.pop();
 
+      console.log(el, rdarr);
+
       currentPlayer = new Worker('./worker.js');
       currentPlayer.on('message', (msg) => {
         if (msg.key == 'main') {
           if (rdarr.length > 0 && msg.val >= parseInt(el.delta)) {
-            //
             switch (el.action) {
             case 'message':
               io.emit('new message', {
-                username: `[${file}]${el.user}`,
+                username: `[${file}]${el.username}`,
                 message: el.message,
-                numUsers: Object.keys(io.sockets.connected).length,
-                autoJoin: true
+                timestamp: el.timestamp,
+                bus: el.bus,
+                numUsers: Object.keys(io.sockets.connected).length
               });
               break;
             case 'join':
-              // io.emit('user joined', {
-              //   username: `[${file}]${el.user}`,
-              //   numUsers: -1
-              // });
               break;
             case 'diconnect':
-              // TODO:
               break;
             }
 
             console.log(el, msg);
             el = rdarr.pop();
-            //
           }
+          // TODO: auto stop
         }
       });
       ret = {
         status: 'playing',
         file
       };
-    } else {
-      if (currentPlayer) {
-        currentPlayer.terminate();
-        currentPlayer = false;
-
-        ret = {
-          status: 'stop',
-          file
-        };
-      } else {
-        ret = {
-          status: 'error:NOT_PLAYING'
-        };
-      }
+    } else if (ci == 0 && currentPlayer) {
+      currentPlayer.terminate();
+      currentPlayer = false;
+      ret = {
+        status: 'stop',
+        file
+      };
     }
   } catch(err) {
     console.error(err);
@@ -230,18 +242,6 @@ const playbackAction = async (cue, file = null) => {
 
   return ret;
 };
-
-app.get('/logging/:toggle', (req, res, next) => {
-  const { toggle } = req.params;
-  const ret = loggerAction(toggle);
-  res.json(ret);
-});
-
-app.post('/logging/playback', async (req, res, next) => {
-  const { cue, file } = req.body;
-  const ret = await playbackAction(cue, file);
-  res.json(ret);
-});
 
 app.post('/join', async (req, res, next) => {
   const { username = '' } = req.body;
@@ -257,47 +257,63 @@ io.on('connection', (socket) => {
     if (addedUser) return;
 
     socket.username = username;
-    // ++numUsers;
     addedUser = true;
 
     socket.emit('login', {
-      // numUsers: numUsers
       numUsers: Object.keys(io.sockets.connected).length
     });
 
     socket.broadcast.emit('user joined', {
       username: socket.username,
-      // numUsers: numUsers
       numUsers: Object.keys(io.sockets.connected).length
     });
 
-    loggerAction(1);
+    startLoggerAction(1);
   });
 
   socket.on('new message', async (data) => {
     //! w/ backword compatiblity
     const { message, ...options } = (typeof data == 'string') ? { message: data } : data;
     const ret = await metaAction(message).catch(console.error);
+    const cnow = Date.now();
 
     if (ret && ret.status.indexOf('error') != 0) {
       //! server meta command
       switch (ret.action) {
       case 'H':
+        const { data: logdata } = ret;
+        const { file: entry = [] } = logdata;
         socket.emit('reply command', {
-          // message: `${JSON.stringify(ret)}`
-          mssage: ret
+          action: ret.action,
+          message: entry
+        });
+        break;
+      case 'S':
+        const { data: files } = ret;
+        socket.emit('new message', {
+          username: `[server]`,
+          message: JSON.stringify(files),
+          color: '#999',
+          bus: '*'
         });
         break;
       default:
-        // TODO:
+        io.emit('new message', {
+          username: `(server)`,
+          message: `${message} - ${JSON.stringify(ret)}`,
+          color: '#999',
+          bus: '*'
+        });
         break;
       }
       //
     } else if (ret && ret.status.indexOf('error') == 0) {
       //! server meta command w/ error
       socket.emit('new message', {
-        username: socket.username,
-        message: `${message} - ${JSON.stringify(ret)}`
+        username: `[server]`,
+        message: `${message} - ${JSON.stringify(ret)}`,
+        color: '#999',
+        bus: '*'
       });
     } else {
       //! PCode
@@ -306,14 +322,19 @@ io.on('connection', (socket) => {
         username: socket.username,
         message,
         bus,
-        timestamp: Date.now()
+        timestamp: new Date(cnow)
       });
     }
 
     if (currentLogger.writable && !ret) {
+      const { bus = 0 } = options;
+
       currentLogger.info(`${message}`, {
-        user: socket.username,
-        delta: Date.now() - loggerStartAt,
+        username: socket.username,
+        bus: parseInt(bus),
+        //! timestamp is added automaticaly by winston
+        // timestamp: new Date(cnow),
+        delta: cnow - loggerStartAt,
         action: 'message'
       });
     }
