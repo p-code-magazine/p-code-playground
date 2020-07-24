@@ -91,9 +91,7 @@ window.appComponents = {
           this.tabText = `server: online[${data.numUsers}]`;
         });
         this.sio.on('new message', (data) => {
-          if (this.isLogin) {
-            this.pushMessage('server', data);
-          }
+          this.pushMessage('server', data);
         });
         this.sio.on('reply command', (data) => {
           // TODO:
@@ -125,7 +123,6 @@ window.appComponents = {
         });
 
         this.sio.emit('add user', this.userName);
-        this.isLogin = true;
       },
 
       runPCode(code, bus = 0) {
@@ -237,6 +234,26 @@ window.appComponents = {
         const keycode = e.code || e.key;
         let opMode = 0;
 
+        // a.
+        if (e.which == 13 && this.currentInput.length > 0) {
+          const [isLocalCmd, isServerCmd] = this.checkInputAsCommand();
+          this.pushMessage();
+
+          if (!isLocalCmd) {
+            this.sio.emit(
+              'new message', {
+                message: this.currentInput,
+                bus: this.selectBus()
+              }
+            );
+          }
+
+          this.currentInput = '';
+          this.localHistoryIndex = this.inputHistory.length;
+          return;
+        }
+
+        // b.
         switch (keycode) {
         case 'ArrowUp':
           opMode = -1 * modifier;
@@ -294,24 +311,7 @@ window.appComponents = {
       upAction(e) {
         const keycode = e.code || e.key;
 
-        if (
-          keycode == 'Enter' && this.currentInput.length > 0
-        ) {
-          const [isLocalCmd, isServerCmd] = this.checkInputAsCommand();
-          this.pushMessage();
-
-          if (!isLocalCmd) {
-            this.sio.emit(
-              'new message', {
-                message: this.currentInput,
-                bus: this.selectBus()
-              }
-            );
-          }
-
-          this.currentInput = '';
-          this.localHistoryIndex = this.inputHistory.length;
-        } else if(keycode == 'Escape') {
+        if(keycode == 'Escape') {
           if (!this.showHelp && this.showHistory) {
             this.showHistory = false;
             this.serverHistoryIndex = this.serverHistory.length;
@@ -335,11 +335,10 @@ window.appComponents = {
       },
 
       loginAction(e) {
-        const keycode = e.code || e.key;
-        if (
-          keycode == 'Enter' && this.userName.length > 0
-        ) {
+        if (e.which == 13 && this.userName.length > 0) {
           this.currentInput = '';
+          this.isLogin = true;
+
           (async () => {
             try {
               const res = await window.fetch('/join', {
