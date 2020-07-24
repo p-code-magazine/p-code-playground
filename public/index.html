@@ -1,29 +1,166 @@
 <!doctype html>
 <html lang="en">
 
-<head>
-  <meta charset="UTF-8">
-  <title>P-Code Playground</title>
-  <link rel="stylesheet" href="style.css">
-</head>
+  <head>
+    <meta charset="UTF-8">
+    <title>P-Code Playground</title>
+    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/main.js"></script>
+  </head>
 
-<body>
-  <ul class="pages">
-    <li class="chat page">
-      <div class="chatArea">
-        <ul class="messages"></ul>
-      </div>
-      <input class="inputMessage" placeholder="Type here..." />
-    </li>
-    <li class="login page">
-      <div class="form">
-        <h3 class="title">What's your nickname?</h3>
-        <input class="usernameInput" type="text" maxlength="14" />
-      </div>
-    </li>
-  </ul>
+  <body>
+    <main id="app"
+      x-data="appComponents.cmdr()"
+      x-on:keydown.window="autoFocus($event)"
+      x-init="init">
 
-  <script src="/main.js"></script>
-</body>
+      <div class="fixed-pane vertical">
+        <!-- // server history view -->
+        <article class="server">
+          <header x-text="tabText"></header>
+          <template x-for="(item, index) in serverHistory" :key="index">
+            <div class="item">
+              <span class="username"
+                x-bind:style="`color:${item.color};`"
+                x-text="item.username"></span>
+              <span x-text="`-> [${item.bus}]`"></span>
+              <span x-text="item.message"></span>
+            </div>
+          </template>
+        </article>
+
+        <!-- // user history view -->
+        <template x-if="showHistory == 'local'">
+          <article class="user local">
+            <header>local message history</header>
+            <template
+              x-for="(item, index) in inputHistory"
+              :key="index">
+              <div x-text="item"
+                x-bind:class="{ item: true, hl: index == localHistoryIndex }"></div>
+            </template>
+          </article>
+        </template>
+
+        <!-- // server history view -->
+        <template x-if="showHistory == 'server'">
+          <article class="user public">
+            <header>server message history</header>
+            <template
+              x-for="(item, index) in serverHistory"
+              :key="index">
+              <div class="item"
+                x-bind:class="{ item: true, hl: index == serverHistoryIndex }">
+                <span class="username"
+                  x-bind:style="`color:${item.color};`"
+                  x-text="item.username"></span>
+                <span x-text="item.message"></span>
+              </div>
+            </template>
+          </article>
+        </template>
+      </div>
+
+      <div class="fixed-pane vertical"
+        style="background:rgba(0,0,0,.8);"
+        x-show="showHelp">
+        <!-- // help -->
+        <article class="help">
+          <header>help</header>
+          <section>
+            <h3>Key controls</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>key</th>
+                  <th>description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="cmdhelp">'↑' / '↓'</td>
+                  <td>
+                    <p>Recall local history, back & forward.</p>
+                    <p>(* <span class="cmdhelp">'ESC'</span> key to close the history pane)</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="cmdhelp">'SHIFT' + '↑' / 'SHIFT' + '↓'</td>
+                  <td>
+                    <p>Recall server history, back & forward.</p>
+                    <p>(* <span class="cmdhelp">'ESC'</span> key to close the history pane)</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+          <section>
+            <h3>Local commands</h3>
+            <p>These commands are not sent to the public timeline. </p>
+            <table>
+              <thead>
+                <tr>
+                  <th>command format</th>
+                  <th>[arguments]</th>
+                  <th>description</th>
+                  <th>example</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="cmdhelp">$ help</td>
+                  <td>None</td>
+                  <td>
+                    <p>Show this help.</p>
+                  </td>
+                  <td class="cmdhelp">$ help</td>
+                </tr>
+                <tr>
+                  <td class="cmdhelp">$ bus [0-7|auto]</td>
+                  <td>0,1,2,3,4,5,6,7 or auto</td>
+                  <td>
+                    <p>Set the target audio bus.</p>
+                    <p>P-Code Playground has individual buses.</p>
+                    <p>You can choose it to run your code.</p>
+                    <p>The default is 'auto'</p>
+                  </td>
+                  <td class="cmdhelp">$ bus 0<br> $ bus 1<br>$ bus auto</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <div class="item" style="margin-top:.75rem;">
+            <p> P-Code language specification is <a href="https://github.com/p-code-magazine/p-code/blob/master/LANGSPEC.md" target="_blank">here</a></p>
+            <p>retype <span class="cmdhelp">'$ help'</span> or <span class="cmdhelp">'ESC'</span> key to close this pane</span></p>
+          </div>
+        </article>
+      </div>
+
+      <div class="fixed-pane bottom">
+        <section>
+          <label x-text="`-> [${bus == 'auto' ? '?' : bus}]`"></label>
+          <input placeholder="Please type '$ help' here for usages" type="text"
+            x-model="currentInput"
+            x-on:keydown="downAction($event)"
+            x-on:keyup="upAction($event)" />
+        </section>
+      </div>
+
+      <template x-if="!isLogin">
+        <div class="fixed-pane center">
+          <section class="login page">
+            <div class="form">
+              <input placeholder="What's your nickname?" type="text" class="usernameInput"
+                x-model="userName"
+                x-on:keydown="loginAction($event)" />
+            </div>
+          </section>
+        </div>
+      </template>
+
+    </main>
+  </body>
 
 </html>

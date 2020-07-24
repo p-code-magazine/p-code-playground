@@ -1,358 +1,367 @@
-import { PCode } from '@p-code-magazine/p-code';
+import { PCode } from '@h4us/p-code';
 import io from 'socket.io-client';
 import p5 from 'p5';
+import 'alpinejs';
 
-$(function() {
-  var FADE_TIME = 150; // ms
-  var TYPING_TIMER_LENGTH = 400; // ms
-  var COLORS = [
-    '#e21400', '#91580f', '#f8a700', '#f78b00',
-    '#58dc00', '#287b00', '#a8f07a', '#4ae8c4',
-    '#3b88eb', '#3824aa', '#a700ff', '#d300e7'
-  ];
+const COLORS = [
+  '#e21400', '#91580f', '#f8a700', '#f78b00',
+  '#58dc00', '#287b00', '#a8f07a', '#4ae8c4',
+  '#3b88eb', '#3824aa', '#a700ff', '#d300e7'
+];
+const MAX_NUM_INSTANCES = 8;
 
-  // Initialize variables
-  var $window = $(window);
-  var $usernameInput = $('.usernameInput'); // Input for username
-  var $messages = $('.messages'); // Messages area
-  var $inputMessage = $('.inputMessage'); // Input message input box
+window.appComponents = {
+  cmdr() {
+    return {
+      currentInput: '',
+      bus: 'auto',
+      inputHistory: [],
+      serverHistory: [],
+      localHistoryIndex: 0,
+      serverHistoryIndex: 0,
+      typingUsers: [],
+      tabText: 'server',
+      numUsers: 0,
+      //
+      showHelp: false,
+      showHistory: false,
+      isLogin: false,
+      isSubmit: false,
+      //
+      pcodes: [],
+      p5s: null,
+      userName: '',
+      sio: null,
 
-  var $loginPage = $('.login.page'); // The login page
-  var $chatPage = $('.chat.page'); // The chatroom page
+      init() {
+        // TODO:
+        setInterval(() => {
+          if (this.typingUsers.length > 0) {
+            this.typingUsers.splice(0, 1);
+          } else {
+            this.tabText = `server: online[${this.numUsers}]`;
+          }
+        }, 1500);
+      },
 
-  // Prompt for setting a username
-  var username;
-  var connected = false;
-  var typing = false;
-  var lastTypingTime;
-  var $currentInput = $usernameInput.focus();
-
-  var socket = io();
-
-  let p5s = [];
-  let pcodes = [];
-
-  const addParticipantsMessage = (data) => {
-    var message = '';
-    if (data.numUsers === 1) {
-      message += "there's 1 participant";
-    } else {
-      message += "there are " + data.numUsers + " participants";
-    }
-    log(message);
-  }
-
-  // Sets the client's username
-  const setUsername = () => {
-    username = cleanInput($usernameInput.val().trim());
-
-    // If the username is valid
-    if (username) {
-      $loginPage.fadeOut();
-      $chatPage.show();
-      $loginPage.off('click');
-      $currentInput = $inputMessage.focus();
-
-      // Tell the server your username
-      socket.emit('add user', username);
-    }
-  }
-
-  // Sends a chat message
-  const sendMessage = () => {
-    var message = $inputMessage.val();
-    // Prevent markup from being injected into the message
-    // message = cleanInput(message);
-    // if there is a non-empty message and a socket connection
-    if (message && connected) {
-      $inputMessage.val('');
-      addChatMessage({
-        username: username,
-        message: message
-      });
-      // tell server to execute 'new message' and send along one parameter
-      socket.emit('new message', message);
-    }
-  }
-
-  // Log a message
-  const log = (message, options) => {
-    var $el = $('<li>').addClass('log').text(message);
-    addMessageElement($el, options);
-  }
-
-  // Adds the visual chat message to the message list
-  const addChatMessage = (data, options) => {
-    // Don't fade the message in if there is an 'X was typing'
-    var $typingMessages = getTypingMessages(data);
-    options = options || {};
-    if ($typingMessages.length !== 0) {
-      options.fade = false;
-      $typingMessages.remove();
-    }
-
-    var $usernameDiv = $('<span class="username"/>')
-      .text(data.username)
-      .css('color', getUsernameColor(data.username));
-    var $messageBodyDiv = $('<span class="messageBody">')
-      .text(data.message);
-
-    var typingClass = data.typing ? 'typing' : '';
-    var $messageDiv = $('<li class="message"/>')
-      .data('username', data.username)
-      .addClass(typingClass)
-      .append($usernameDiv, $messageBodyDiv);
-
-    addMessageElement($messageDiv, options);
-  }
-
-  // Adds the visual chat typing message
-  const addChatTyping = (data) => {
-    data.typing = true;
-    data.message = 'is typing';
-    addChatMessage(data);
-  }
-
-  // Removes the visual chat typing message
-  const removeChatTyping = (data) => {
-    getTypingMessages(data).fadeOut(function() {
-      $(this).remove();
-    });
-  }
-
-  // Adds a message element to the messages and scrolls to the bottom
-  // el - The element to add as a message
-  // options.fade - If the element should fade-in (default = true)
-  // options.prepend - If the element should prepend
-  //   all other messages (default = false)
-  const addMessageElement = (el, options) => {
-    var $el = $(el);
-
-    // Setup default options
-    if (!options) {
-      options = {};
-    }
-    if (typeof options.fade === 'undefined') {
-      options.fade = true;
-    }
-    if (typeof options.prepend === 'undefined') {
-      options.prepend = false;
-    }
-
-    // Apply options
-    if (options.fade) {
-      $el.hide().fadeIn(FADE_TIME);
-    }
-    if (options.prepend) {
-      $messages.prepend($el);
-    } else {
-      $messages.append($el);
-    }
-    $messages[0].scrollTop = $messages[0].scrollHeight;
-  }
-
-  // Prevents input from having injected markup
-  const cleanInput = (input) => {
-    return $('<div/>').text(input).html();
-  }
-
-  // Updates the typing event
-  const updateTyping = () => {
-    if (connected) {
-      if (!typing) {
-        typing = true;
-        socket.emit('typing');
-      }
-      lastTypingTime = (new Date()).getTime();
-
-      setTimeout(() => {
-        var typingTimer = (new Date()).getTime();
-        var timeDiff = typingTimer - lastTypingTime;
-        if (timeDiff >= TYPING_TIMER_LENGTH && typing) {
-          socket.emit('stop typing');
-          typing = false;
+      initCmdr() {
+        for (let i = 0; i < MAX_NUM_INSTANCES; i++) {
+          const p = new PCode({
+            defaultVolume: -10,
+            comment: { enable: true },
+            meta: { enable: true }
+          });
+          this.pcodes.push(p);
         }
-      }, TYPING_TIMER_LENGTH);
-    }
-  }
 
-  // Gets the 'X is typing' messages of a user
-  const getTypingMessages = (data) => {
-    return $('.typing.message').filter(function(i) {
-      return $(this).data('username') === data.username;
-    });
-  }
+        const ctx = (p) => {
+          //! embed in p5
+          const _pcodes = this.pcodes;
 
-  // Gets the color of a username through our hash function
-  const getUsernameColor = (username) => {
-    // Compute hash code
-    var hash = 7;
-    for (var i = 0; i < username.length; i++) {
-      hash = username.charCodeAt(i) + (hash << 5) - hash;
-    }
-    // Calculate color
-    var index = Math.abs(hash % COLORS.length);
-    return COLORS[index];
-  }
+          p.setup = () => {
+            p.frameRate(30);
+          };
 
-  const createP5 = (user) => {
-    let s = (p) => {
-      p.setup = () => {
-        p.frameRate(30);
-      }
-
-      p.draw = () => {
-        for(let i=0; i<pcodes.length; i++) {
-          if(pcodes[i].isReady) {
-            if(pcodes[i].core.isPlaying) {
-              if(pcodes[i].core.hasNext()) {
-                let node = pcodes[i].core.tokens[pcodes[i].core.pointer];
-                pcodes[i].core.execute(node);
-                pcodes[i].core.next();
+          p.draw = () => {
+            for(let el of _pcodes) {
+              if(el.isPlaying) {
+                if(el.hasNext()) {
+                  let node = el.tokens[el.pointer];
+                  el.execute(node);
+                  el.next();
+                } else {
+                  el.isPlaying = false;
+                }
               } else {
-                pcodes[i].core.isPlaying = false;
+                if(el.doLoop) {
+                  el.reset();
+                  el.isPlaying = true;
+                } else {
+                  el.stop();
+                }
               }
-            } else {
-              if(pcodes[i].doLoop) {
-                pcodes[i].core.reset();
-                pcodes[i].core.isPlaying = true;
-              } else {
-                pcodes[i].core.stop();
+            }
+          };
+        };
+
+        this.p5s = new p5(ctx);
+        this.sio = io();
+
+        this.sio.on('login', (data) => {
+          this.numUsers = data.numUsers;
+          this.tabText = `server: online[${data.numUsers}]`;
+        });
+        this.sio.on('new message', (data) => {
+          this.pushMessage('server', data);
+        });
+        this.sio.on('reply command', (data) => {
+          // TODO:
+          console.log(data);
+        });
+        this.sio.on('user joined', (data) => {
+          this.numUsers = data.numUsers;
+          this.tabText = `server: online[${data.numUsers}]`;
+        });
+        this.sio.on('user left', (data) => {
+          this.numUsers = data.numUsers;
+          this.tabText = `server: online[${data.numUsers}]`;
+        });
+        this.sio.on('typing', (data) => {
+          if (this.typingUsers.findIndex((el) => el == data.username) < 0) {
+            this.typingUsers.push(data.username);
+          }
+
+          this.tabText = `server: online[${data.numUsers}] | ${this.typingUsers.join(',')} typing..`;
+        });
+        this.sio.on('disconnect', () => {
+          console.info('you have been disconnected');
+        });
+        this.sio.on('reconnect', () => {
+          if (this.userName.length > 0) {
+            this.sio.emit('add user', this.userName);
+          }
+          console.info('you have been reconnected');
+        });
+
+        this.sio.emit('add user', this.userName);
+        this.isLogin = true;
+      },
+
+      runPCode(code, bus = 0) {
+        this.pcodes[bus].run(code);
+      },
+
+      getUsernameColor(username) {
+        let hash = 7;
+        for (let i = 0; i < username.length; i++) {
+          hash = username.charCodeAt(i) + (hash << 5) - hash;
+        }
+        const index = Math.abs(hash % COLORS.length);
+        return COLORS[index];
+      },
+
+      selectBus() {
+        let b = 0;
+
+        if (this.bus == 'auto') {
+          let p = this.pcodes[0];
+          for (let i in this.pcodes) {
+            if (i > 0) {
+              if (p.lastEvaluateTime > this.pcodes[i].lastEvaluateTime) {
+                p = this.pcodes[i];
+                b = i;
               }
             }
           }
+        } else {
+          b = this.bus;
+        }
+
+        return b;
+      },
+
+      pushMessage(target = 'local', data = {}) {
+        if (target == 'local') {
+          this.inputHistory.push(this.currentInput);
+          setTimeout(() => {
+            const sc = document.querySelectorAll('.user');
+            const sb = document.querySelectorAll('.fixed-pane.bottom')[0];
+            if (sc.length > 0) {
+              sc[0].scrollTop = sc[0].scrollHeight - (sc[0].clientHeight + sc[0].getBoundingClientRect().top) + sb.clientHeight;
+            }
+          }, 100);
+        } else if (target == 'server') {
+          const {
+            username, message, timestamp,
+            bus = Math.ceil(Math.random() * 8)
+          } = data;
+          const color = this.getUsernameColor(username);
+
+          this.serverHistory.push({
+            username, message, timestamp, color, bus
+          });
+          this.runPCode(message, bus);
+
+          setTimeout(() => {
+            const sc = document.querySelectorAll('.server')[0];
+            const sb = document.querySelectorAll('.fixed-pane.bottom')[0];
+            sc.scrollTop = sc.scrollHeight - (sc.clientHeight + sc.getBoundingClientRect().top) + sb.clientHeight;
+          }, 100);
+        } else if (target == 'typing') {
+          // TODO
+        }
+      },
+
+      checkInputAsCommand() {
+        const isLocal = /^\$ .+/.test(this.currentInput);
+        const isServer = /^\$$ .+/.test(this.currentInput);
+
+        if (isServer) {
+          // TODO:
+        } else if (isLocal) {
+          //! show help
+          if (this.currentInput.indexOf('$ help') == 0) {
+            this.showHelp = !this.showHelp;
+          }
+          //! set audio bus
+          if (this.currentInput.indexOf('$ bus') == 0) {
+            const bVal = this.currentInput.replace('$ bus ', '');
+            const bNum = parseInt(bVal);
+            if (!isNaN(bNum) && bNum < this.pcodes.length && bNum >= 0) {
+              this.bus = bNum;
+            } else if (bVal == 'auto') {
+              this.bus = 'auto';
+            }
+          }
+        }
+
+        console.log(
+          `local meta?${isLocal}, server meta?${isServer}`
+        );
+
+        return [isLocal, isServer];
+      },
+
+      autoFocus(e) {
+        const modifier = (e.ctrlKey || e.altKey || e.metaKey);
+        const aEl = document.activeElement;
+        const tEl = this.isLogin ? document.querySelector('input') : document.querySelector('input.usernameInput');
+        if (aEl != tEl && !modifier) {
+          tEl.focus();
+        }
+      },
+
+      downAction(e) {
+        const modifier = e.shiftKey ? 2 : 1;
+        const keycode = e.code || e.key;
+        let opMode = 0;
+
+        // a.
+        if (e.which == 13 && this.currentInput.length > 0) {
+          const [isLocalCmd, isServerCmd] = this.checkInputAsCommand();
+          this.pushMessage();
+
+          if (!isLocalCmd) {
+            this.sio.emit(
+              'new message', {
+                message: this.currentInput,
+                bus: this.selectBus()
+              }
+            );
+          }
+
+          this.currentInput = '';
+          this.localHistoryIndex = this.inputHistory.length;
+          return;
+        }
+
+        // b.
+        switch (keycode) {
+        case 'ArrowUp':
+          opMode = -1 * modifier;
+          break;
+        case 'ArrowDown':
+          opMode = 1 * modifier;
+          break;
+        default:
+          break;
+        }
+
+        if (opMode == 1 && this.localHistoryIndex < this.inputHistory.length - 1) {
+          this.localHistoryIndex ++;
+          this.currentInput = this.inputHistory[this.localHistoryIndex];
+          this.showHistory = 'local';
+        }
+
+        if (opMode == -1 && this.localHistoryIndex > 0) {
+          this.localHistoryIndex --;
+          this.currentInput = this.inputHistory[this.localHistoryIndex];
+          this.showHistory = 'local';
+        }
+
+        if (opMode == 2 && this.serverHistoryIndex < this.serverHistory.length - 1) {
+          this.serverHistoryIndex ++;
+          this.currentInput = this.serverHistory[this.serverHistoryIndex].message;
+          this.showHistory = 'server';
+        }
+
+        if (opMode == -2 && this.serverHistoryIndex > 0) {
+          this.serverHistoryIndex --;
+          this.currentInput = this.serverHistory[this.serverHistoryIndex].message;
+          this.showHistory = 'server';
+        }
+
+        if (opMode == 1 || opMode == -1 || opMode == 2 || opMode == -2) {
+          this.$nextTick(() => {
+            const q = Math.abs(opMode) == 2 ? '.user.public' : '.user.local';
+            const idx = Math.abs(opMode) == 2 ? this.serverHistoryIndex : this.localHistoryIndex;
+            const sc = document.querySelector(q);
+            const sci = document.querySelectorAll(`${q} .item`)[idx];
+            try {
+              if ((sci.getBoundingClientRect().top - sci.clientHeight) < 0) {
+                sc.scrollTop += sci.getBoundingClientRect().top - sci.clientHeight;
+              } else if((sci.getBoundingClientRect().top + sci.clientHeight) > sc.clientHeight)  {
+                sc.scrollTop += (sci.getBoundingClientRect().top - sc.clientHeight + sci.clientHeight);
+              }
+            } catch(err) {
+              console.error(err);
+            }
+          });
+        }
+      },
+
+      upAction(e) {
+        const keycode = e.code || e.key;
+
+        if(keycode == 'Escape') {
+          if (!this.showHelp && this.showHistory) {
+            this.showHistory = false;
+            this.serverHistoryIndex = this.serverHistory.length;
+          }
+          if (this.showHelp) this.showHelp = false;
+        } else if (keycode == 'ArrowUp' && e.shiftKey) {
+          if (this.serverHistoryIndex == 0) {
+            const startFrom = this.serverHistory.length == 0 ? 'now' : this.serverHistory[0].timestamp;
+            // console.log('please more server log!', startFrom);
+            this.sio.emit(
+              'new message',
+              `\$\$ H ${startFrom},10`
+            );
+          }
+        } else {
+          // ...
+          // console.log(e);
+          // -
+          this.sio.emit('typing');
+        }
+      },
+
+      loginAction(e) {
+        if (e.which == 13 && this.userName.length > 0 && !this.isSubmit) {
+          this.currentInput = '';
+          this.isSubmit = true;
+
+          (async () => {
+            try {
+              const res = await window.fetch('/join', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username: this.userName })
+              });
+              const rjson = await res.json();
+              const { status } = rjson;
+
+              if (status) {
+                this.initCmdr();
+              }
+            } catch(err) {
+              console.error(err);
+            }
+          })();
         }
       }
     };
-
-    p5s.push(new p5(s));
   }
-
-  // Keyboard events
-
-  $window.keydown(event => {
-    // Auto-focus the current input when a key is typed
-    if (!(event.ctrlKey || event.metaKey || event.altKey)) {
-      $currentInput.focus();
-    }
-    // When the client hits ENTER on their keyboard
-    if (event.which === 13) {
-      if (username) {
-        sendMessage();
-        socket.emit('stop typing');
-        typing = false;
-      } else {
-        setUsername();
-      }
-    }
-  });
-
-  $inputMessage.on('input', () => {
-    updateTyping();
-  });
-
-  // Click events
-
-  // Focus input when clicking anywhere on login page
-  $loginPage.click(() => {
-    $currentInput.focus();
-  });
-
-  // Focus input when clicking on the message input's border
-  $inputMessage.click(() => {
-    $inputMessage.focus();
-  });
-
-  // Socket events
-
-  // Whenever the server emits 'login', log the login message
-  socket.on('login', (data) => {
-    connected = true;
-    // Display the welcome message
-    var message = "Welcome to Socket.IO Chat – ";
-    log(message, {
-      prepend: true
-    });
-    addParticipantsMessage(data);
-
-    createP5(data.username);
-  });
-
-  // Whenever the server emits 'new message', update the chat body
-  socket.on('new message', (data) => {
-    addChatMessage(data);
-
-    const { autoJoin } = data;
-    let code = data.message;
-
-    if (autoJoin) {
-      if (pcodes.findIndex((el) => el.user == data.username) < 0) {
-        log(data.username + ' joined (auto)');
-        addParticipantsMessage(data);
-
-        pcodes.push(Object.create({
-          user: data.username,
-          core: new PCode({ enableCommentSyntax: true }),
-          isPlaying: false,
-          isReady: true,
-          doLoop: false
-        }));
-      }
-    }
-
-    if(code) {
-      for(let i=0; i<pcodes.length; i++) {
-        if(pcodes[i].user == data.username) {
-          pcodes[i].core.run(code);
-          pcodes[i].isPlaying = true;
-        }
-      }
-    }
-  });
-
-  // Whenever the server emits 'user joined', log it in the chat body
-  socket.on('user joined', (data) => {
-    log(data.username + ' joined');
-    addParticipantsMessage(data);
-    pcodes.push(Object.create({
-      user: data.username,
-      core: new PCode({ enableCommentSyntax: true }),
-      isPlaying: false,
-      isReady: true,
-      doLoop: false
-    }));
-  });
-
-  // Whenever the server emits 'user left', log it in the chat body
-  socket.on('user left', (data) => {
-    log(data.username + ' left');
-    addParticipantsMessage(data);
-    removeChatTyping(data);
-  });
-
-  // Whenever the server emits 'typing', show the typing message
-  socket.on('typing', (data) => {
-    addChatTyping(data);
-  });
-
-  // Whenever the server emits 'stop typing', kill the typing message
-  socket.on('stop typing', (data) => {
-    removeChatTyping(data);
-  });
-
-  socket.on('disconnect', () => {
-    log('you have been disconnected');
-  });
-
-  socket.on('reconnect', () => {
-    log('you have been reconnected');
-    if (username) {
-      socket.emit('add user', username);
-    }
-  });
-
-  socket.on('reconnect_error', () => {
-    log('attempt to reconnect has failed');
-  });
-
-});
+};
