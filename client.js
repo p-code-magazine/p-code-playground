@@ -26,6 +26,7 @@ window.appComponents = {
       showHelp: false,
       showHistory: false,
       isLogin: false,
+      isSubmit: false,
       //
       pcodes: [],
       p5s: null,
@@ -123,6 +124,7 @@ window.appComponents = {
         });
 
         this.sio.emit('add user', this.userName);
+        this.isLogin = true;
       },
 
       runPCode(code, bus = 0) {
@@ -335,9 +337,9 @@ window.appComponents = {
       },
 
       loginAction(e) {
-        if (e.which == 13 && this.userName.length > 0) {
+        if (e.which == 13 && this.userName.length > 0 && !this.isSubmit) {
           this.currentInput = '';
-          this.isLogin = true;
+          this.isSubmit = true;
 
           (async () => {
             try {
