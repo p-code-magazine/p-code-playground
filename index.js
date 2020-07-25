@@ -35,38 +35,35 @@ const metaAction = async (msg) => {
       status: 'error:SERVER_META_ACTION_NOT_FOUND'
     };
 
-    if (/^\$\$ [a-zA-Z\-]+ [a-zA-Z0-9\.\-\,]+/.test(msg)) {
-      const cmds = msg.match(/^\$\$ ([a-zA-Z\-]+) ([a-zA-Z0-9\.\-\,\:]+)/);
+    if (/^\$\$ [A-Z\-]+( [a-zA-Z0-9\.\-\,\:]+)*/.test(msg)) {
+      const cmdBase = msg.match(/^\$\$ ([A-Z\-]+)( [a-zA-Z0-9\.\-\,\:]+)*/);
 
-      console.log('tested meta action', cmds);
+      if (cmdBase.length > 2) {
+        let args_raw = (cmdBase[2] !== undefined) ? cmdBase[2].match(/^ ([a-zA-Z0-9\.\-\,\:]+)$/) : [];
+        let args = args_raw.length > 1 ? args_raw[1] : '';
+        let args_sep = (args.indexOf(',') == -1) ? ['', ''] : args.split(',');
 
-      if (cmds.length > 2) {
-        let args, args_raw;
-
-        switch(cmds[1]) {
-        case 'S':
-          ret = await showLogsAction(cmds[2]);
-          break;
+        switch(cmdBase[1]) {
         case 'L':
-          ret = startLoggerAction(cmds[2]);
+          ret = await showLogsAction();
+          break;
+        case 'R':
+          ret = recordLogAction(args);
           break;
         case 'P':
-          args = cmds[2].split(',');
-          ret = await playbackAction(args[0], args[1]);
+          ret = await playbackLogAction(args_sep[0], args_sep[1]);
           break;
         case 'H':
-          args_raw = cmds[2].split(',');
-          const [a1 = '', a2 = 1] = args_raw;
+          const [a1 = '', a2 = 1] = args_sep;
           const dt = new Date(a1);
-          args = {
+          ret = await queryLogAction({
             until: (dt.toString() === 'Invalid Date') ? Date.now() : (dt - 1),
             limit: a2
-          };
-          ret = await queryAction(args);
+          });
           break;
         }
 
-        ret['action'] = cmds[1];
+        ret['action'] = cmdBase[1];
       }
     }
 
@@ -86,7 +83,7 @@ const showLogsAction = async (ext = '.log') => {
     const fd = await readdir(`./logs`).catch(console.error);
     const r = new RegExp(`^.+\.${ext}$`);
     ret = {
-      status: 'founded',
+      status: 'success',
       data: fd.filter((el) => r.test(el))
     };
   } catch(err) {
@@ -96,7 +93,7 @@ const showLogsAction = async (ext = '.log') => {
   return ret;
 };
 
-const queryAction = async (q) => {
+const queryLogAction = async (q) => {
   let ret = {
     status: 'error:UNKNOWN'
   };
@@ -116,7 +113,7 @@ const queryAction = async (q) => {
           reject(Object.assign(ret, { data: err }));
         }
 
-        resolve(Object.assign(ret, { status: 'founded',  data: results }));
+        resolve(Object.assign(ret, { status: 'success',  data: results }));
       });
     });
   }
@@ -124,7 +121,7 @@ const queryAction = async (q) => {
   return ret;
 };
 
-const startLoggerAction = (tgl) => {
+const recordLogAction = (tgl) => {
   let ret = {
     status: 'error:UNKNOWN'
   };
@@ -143,7 +140,7 @@ const startLoggerAction = (tgl) => {
     currentLogger = false;
 
     ret = {
-      status: 'finished',
+      status: 'success:LOGGER_FINISHED',
       file: `session-${loggerStartAt}.log`
     };
   } else if (toggle > 0 && !currentLogger) {
@@ -167,7 +164,7 @@ const startLoggerAction = (tgl) => {
     console.log('currentLogger started');
 
     ret = {
-      status: 'started',
+      status: 'success:LOGGER_STARTED',
       file: `session-${loggerStartAt}.log`
     };
   } else {
@@ -180,7 +177,7 @@ const startLoggerAction = (tgl) => {
   return ret;
 };
 
-const playbackAction = async (cue, file = null) => {
+const playbackLogAction = async (cue, file = null) => {
   let ret = {
     status: 'error:INVALID_OPERATION'
   };
@@ -188,51 +185,62 @@ const playbackAction = async (cue, file = null) => {
 
   try {
     if (ci == 1 && !currentPlayer) {
+      // --
       const fp = await readFile(`./logs/${file}`).catch(console.error);
-
       let d = fp.toString().split('\n');
       d.pop();
       let darr = JSON.parse(`[${d.join(',')}]`);
-      let rdarr = darr.reverse();
-      let el = rdarr.pop();
+      // --
 
-      console.log(el, rdarr);
+      let rdarr = darr.reverse();
+      let next = [];
+      next.push(rdarr.pop());
+
+      console.log(next, rdarr);
 
       currentPlayer = new Worker('./worker.js');
       currentPlayer.on('message', (msg) => {
         if (msg.key == 'main') {
-          if (rdarr.length > 0 && msg.val >= parseInt(el.delta)) {
-            switch (el.action) {
+          if (next[0] != undefined && msg.val >= parseInt(next[0].delta)) {
+            switch (next[0].action) {
             case 'message':
               io.emit('new message', {
-                username: `[${file}]${el.username}`,
-                message: el.message,
-                timestamp: el.timestamp,
-                bus: el.bus,
+                username: `[${file}]${next[0].username}`,
+                message: next[0].message,
+                timestamp: next[0].timestamp,
+                bus: next[0].bus,
                 numUsers: Object.keys(io.sockets.connected).length
               });
               break;
-            case 'join':
-              break;
-            case 'diconnect':
-              break;
+            // case 'join':
+            //   break;
+            // case 'diconnect':
+            //   break;
             }
-
-            console.log(el, msg);
-            el = rdarr.pop();
+            next.splice(0, 1, rdarr.pop());
           }
-          // TODO: auto stop
+
+          if (next[0] == undefined && rdarr.length == 0 && currentPlayer) {
+            currentPlayer.terminate();
+            currentPlayer = false;
+            io.emit('new message', {
+              username: `(server)`,
+              message: `- {"status":"success:PLAYBACK_FINISHED", "file":"${file}"}`,
+              color: '#999',
+              bus: '*'
+            });
+          }
         }
       });
       ret = {
-        status: 'playing',
+        status: 'success:PLAYBACK_STARTED',
         file
       };
     } else if (ci == 0 && currentPlayer) {
       currentPlayer.terminate();
       currentPlayer = false;
       ret = {
-        status: 'stop',
+        status: 'success:PLAYBACK_STOPPED',
         file
       };
     }
@@ -268,7 +276,7 @@ io.on('connection', (socket) => {
       numUsers: Object.keys(io.sockets.connected).length
     });
 
-    startLoggerAction(1);
+    recordLogAction(1);
   });
 
   socket.on('new message', async (data) => {
@@ -288,7 +296,7 @@ io.on('connection', (socket) => {
           message: entry
         });
         break;
-      case 'S':
+      case 'L':
         const { data: files } = ret;
         socket.emit('new message', {
           username: `[server]`,
