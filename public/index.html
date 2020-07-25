@@ -131,6 +131,43 @@
             </table>
           </section>
 
+          <section>
+            <h3>Server commands</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>command format</th>
+                  <th>[arguments]</th>
+                  <th>description</th>
+                  <th>example</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="cmdhelp">$$ L</td>
+                  <td>None</td>
+                  <td>
+                    <p>List session log files.</p>
+                  </td>
+                  <td class="cmdhelp">$$ L</td>
+                </tr>
+
+                <tr>
+                  <td class="cmdhelp">$$ P [1|0][,file_name]</td>
+                  <td>
+                    <p>1 (play) or 0 (stop)</p>
+                    <p><span class="cmdhelp">file_name</span> is optional.</p>
+                    <p>If not set, playback current session log.</p>
+                  </td>
+                  <td>
+                    <p>Playback session log file.</p>
+                  </td>
+                  <td class="cmdhelp">$$ P 1<br>$$ P 0<br>$$ P 1,session-1595596296102.log</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
           <div class="item" style="margin-top:.75rem;">
             <p> P-Code language specification is <a href="https://github.com/p-code-magazine/p-code/blob/master/LANGSPEC.md" target="_blank">here</a></p>
             <p>retype <span class="cmdhelp">'$ help'</span> or <span class="cmdhelp">'ESC'</span> key to close this pane</span></p>
