@@ -127,11 +127,11 @@ const recordLogAction = (tgl) => {
 
   toggle = parseInt(tgl);
 
-  if (currentPlayer) {
-    return {
-      status: 'error:RUNNUG_PLAYBACK'
-    };
-  }
+  // if (currentPlayer) {
+  //   return {
+  //     status: 'error:RUNNUG_PLAYBACK'
+  //   };
+  // }
 
   if (toggle == 0 && currentLogger) {
     currentLogger.end();
