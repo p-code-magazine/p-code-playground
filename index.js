@@ -41,7 +41,7 @@ const metaAction = async (msg) => {
       if (cmdBase.length > 2) {
         let args_raw = (cmdBase[2] !== undefined) ? cmdBase[2].match(/^ ([a-zA-Z0-9\.\-\,\:]+)$/) : [];
         let args = args_raw.length > 1 ? args_raw[1] : '';
-        let args_sep = (args.indexOf(',') == -1) ? ['', ''] : args.split(',');
+        let args_sep = (args.indexOf(',') == -1) ? [args, ''] : args.split(',');
 
         switch(cmdBase[1]) {
         case 'L':
@@ -98,7 +98,6 @@ const queryLogAction = async (q) => {
     status: 'error:UNKNOWN'
   };
 
-  // TODO:
   if (currentLogger.writable) {
     const { until = Date.now(), limit = 1 } = q;
     const qoptions = {
@@ -185,14 +184,26 @@ const playbackLogAction = async (cue, file = null) => {
 
   try {
     if (ci == 1 && !currentPlayer) {
-      // --
-      const fp = await readFile(`./logs/${file}`).catch(console.error);
-      let d = fp.toString().split('\n');
-      d.pop();
-      let darr = JSON.parse(`[${d.join(',')}]`);
-      // --
+      let rdarr = [];
 
-      let rdarr = darr.reverse();
+      if (file) {
+        const fp = await readFile(`./logs/${file}`).catch(console.error);
+        let d = fp.toString().split('\n');
+
+        d.pop();
+        rdarr = JSON.parse(`[${d.join(',')}]`);
+        rdarr = rdarr.reverse();
+      } else {
+        const { status, data } = await queryLogAction({
+          //! max 1000
+          limit: 1000
+        });
+
+        if (status == 'success') {
+          rdarr = data.file;
+        }
+      }
+
       let next = [];
       next.push(rdarr.pop());
 
@@ -205,7 +216,7 @@ const playbackLogAction = async (cue, file = null) => {
             switch (next[0].action) {
             case 'message':
               io.emit('new message', {
-                username: `[${file}]${next[0].username}`,
+                username: `[${file ? file : 'current session'}] ${next[0].username}`,
                 message: next[0].message,
                 timestamp: next[0].timestamp,
                 bus: next[0].bus,
