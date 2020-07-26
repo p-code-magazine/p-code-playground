@@ -73,14 +73,13 @@ const metaAction = async (msg) => {
   }
 };
 
-
 const showLogsAction = async (ext = '.log') => {
   let ret = {
     status: 'error:INVALID_OPERATION'
   };
 
   try {
-    const fd = await readdir(`./logs`).catch(console.error);
+    const fd = await readdir(logsPath).catch(console.error);
     const r = new RegExp(`^.+\.${ext}$`);
     ret = {
       status: 'success',
@@ -126,12 +125,6 @@ const recordLogAction = (tgl) => {
   };
 
   toggle = parseInt(tgl);
-
-  // if (currentPlayer) {
-  //   return {
-  //     status: 'error:RUNNUG_PLAYBACK'
-  //   };
-  // }
 
   if (toggle == 0 && currentLogger) {
     currentLogger.end();
@@ -187,7 +180,7 @@ const playbackLogAction = async (cue, file = null) => {
       let rdarr = [];
 
       if (file) {
-        const fp = await readFile(`./logs/${file}`).catch(console.error);
+        const fp = await readFile(path.join(logsPath, file)).catch(console.error);
         let d = fp.toString().split('\n');
 
         d.pop();
@@ -223,10 +216,6 @@ const playbackLogAction = async (cue, file = null) => {
                 numUsers: Object.keys(io.sockets.connected).length
               });
               break;
-            // case 'join':
-            //   break;
-            // case 'diconnect':
-            //   break;
             }
             next.splice(0, 1, rdarr.pop());
           }
@@ -261,6 +250,20 @@ const playbackLogAction = async (cue, file = null) => {
 
   return ret;
 };
+
+app.get('/download/:file', async (req, res, next) => {
+  const { file = '' } = req.params;
+  const fp = await readFile(path.join(logsPath, file)).catch((err) => err);
+  const { code = false } = fp;
+
+  if (code) {
+    res.json({ message: `error:${code}` });
+  } else {
+    res.type('text/plain');
+    res.attachment();
+    res.send(fp.toString());
+  }
+});
 
 app.post('/join', async (req, res, next) => {
   const { username = '' } = req.body;
@@ -365,13 +368,6 @@ io.on('connection', (socket) => {
       numUsers: Object.keys(io.sockets.connected).length
     });
   });
-
-  // socket.on('stop typing', () => {
-  //   socket.broadcast.emit('stop typing', {
-  //     username: socket.username,
-  //     numUsers: Object.keys(io.sockets.connected).length
-  //   });
-  // });
 
   socket.on('disconnect', () => {
     console.log('active clients:', Object.keys(io.sockets.connected).length);

@@ -192,6 +192,10 @@
               <input placeholder="What's your nickname?" type="text" class="usernameInput"
                 x-model="userName"
                 x-on:keydown="loginAction($event)" />
+              <template x-if="loginAndPlayback">
+                <p style="font-size:66%; color:#999; text-align:center;"
+                  x-text="`Playback after login: ${loginAndPlayback}`"></p>
+              </template>
             </div>
           </section>
         </div>

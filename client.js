@@ -33,6 +33,9 @@ window.appComponents = {
       userName: '',
       sio: null,
 
+      //
+      loginAndPlayback:'',
+
       init() {
         // TODO:
         setInterval(() => {
@@ -42,6 +45,9 @@ window.appComponents = {
             this.tabText = `server: online[${this.numUsers}]`;
           }
         }, 1500);
+
+        const q = new URL(window.location.href);
+        this.loginAndPlayback = q.searchParams.get('p');
       },
 
       initCmdr() {
@@ -103,6 +109,7 @@ window.appComponents = {
           }
 
           if (action == 'P' && message.length > 0) {
+            //
           }
         });
         this.sio.on('user joined', (data) => {
@@ -132,6 +139,15 @@ window.appComponents = {
 
         this.sio.emit('add user', this.userName);
         this.isLogin = true;
+
+        if (this.loginAndPlayback) {
+          this.sio.emit(
+            'new message', {
+              message: `$$ P 1,${this.loginAndPlayback}`,
+              bus: 0
+            }
+          );
+        }
       },
 
       runPCode(code, bus = 0) {
