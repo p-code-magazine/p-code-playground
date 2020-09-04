@@ -26,6 +26,7 @@ window.appComponents = {
       showHelp: false,
       showHistory: false,
       isLogin: false,
+      isSuspended: true,
       isSubmit: false,
       //
       pcodes: [],
@@ -51,6 +52,10 @@ window.appComponents = {
       },
 
       initCmdr() {
+        if (!this.isSuspended || !this.isLogin) {
+          return;
+        }
+
         for (let i = 0; i < MAX_NUM_INSTANCES; i++) {
           const p = new PCode({
             defaultVolume: -12,
@@ -138,7 +143,7 @@ window.appComponents = {
         });
 
         this.sio.emit('add user', this.userName);
-        this.isLogin = true;
+        this.isSuspended = false;
 
         if (this.loginAndPlayback) {
           this.sio.emit(
@@ -254,6 +259,8 @@ window.appComponents = {
       },
 
       downAction(e) {
+        if (this.isSuspended) { return; }
+
         const modifier = e.shiftKey ? 2 : 1;
         const keycode = e.code || e.key;
         let opMode = 0;
@@ -333,6 +340,8 @@ window.appComponents = {
       },
 
       upAction(e) {
+        if (this.isSuspended) { return; }
+
         const keycode = e.code || e.key;
 
         if(keycode == 'Escape') {
@@ -375,7 +384,7 @@ window.appComponents = {
               const { status } = rjson;
 
               if (status) {
-                this.initCmdr();
+                this.isLogin = true;
               }
             } catch(err) {
               console.error(err);

@@ -63,6 +63,15 @@
       </div>
 
       <div class="fixed-pane vertical"
+        style="background:rgba(0,0,0,.8); cursor: pointer;"
+        x-show="isSuspended"
+        x-on:click="initCmdr()">
+        <article class="suspend">
+          <p>Click to start session</p>
+        </article>
+      </div>
+
+      <div class="fixed-pane vertical"
         style="background:rgba(0,0,0,.8);"
         x-show="showHelp">
         <!-- // help -->
@@ -179,6 +188,7 @@
         <section>
           <label x-text="`-> [${bus == 'auto' ? '?' : bus}]`"></label>
           <input placeholder="Please type '$ help' here for usages" type="text"
+            x-bind:disabled="isSuspended"
             x-model="currentInput"
             x-on:keydown="downAction($event)"
             x-on:keyup="upAction($event)" />

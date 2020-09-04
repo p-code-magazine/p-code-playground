@@ -131,6 +131,14 @@ ul {
   color: #fff;
 }
 
+.fixed-pane > article.suspend {
+  background: transparent;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .fixed-pane > article > header {
   width: 100%;
   text-align: center;
