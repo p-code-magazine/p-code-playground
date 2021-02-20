@@ -32,7 +32,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors({
   origin: (
-    process.env.NODE_ENV == 'development' ? '*' : ['https://r3pl-git-develop.inafact.vercel.app/', 'https://r3pl.vercel.app']
+    process.env.NODE_ENV == 'development' ? '*' : ['https://r3pl-git-develop.inafact.vercel.app', 'https://r3pl.vercel.app']
   ),
   credentials: true,
   // optionsSuccessStatus: 200
