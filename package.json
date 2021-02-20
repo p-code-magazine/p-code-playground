@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "start": "webpack --env.production && node index.js",
-    "dev": "webpack --watch --env.development & nodemon index.js",
+    "dev": "webpack --watch --env.development & NODE_ENV=development PORT=3030 nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -15,6 +15,7 @@
     "@h4us/p-code": "https://github.com/h4us/p-code.git#experimental",
     "@p-code-magazine/p-code": "^1.0.0",
     "alpinejs": "^2.5.0",
+    "cors": "^2.8.5",
     "express": "^4.17.1",
     "p5": "^1.0.0",
     "socket.io": "^2.3.0",

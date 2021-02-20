@@ -1,6 +1,7 @@
 // Setup basic express server
 const express = require('express');
 const app = express();
+const cors = require('cors');
 const path = require('path');
 const server = require('http').createServer(app);
 const io = require('socket.io')(server);
@@ -21,15 +22,26 @@ let currentLogger = false;
 let currentPlayer = false;
 let numUsers = 0;
 
+console.log(process.env.NODE_ENV);
+
 server.listen(port, () => {
   console.log('Server listening at port %d', port);
 });
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(cors({
+  origin: (
+    process.env.NODE_ENV == 'development' ? '*' : ['https://r3pl-git-develop.inafact.vercel.app/', 'https://r3pl.vercel.app']
+  ),
+  credentials: true,
+  // optionsSuccessStatus: 200
+}));
 
 // ...
-const metaAction = async (msg) => {
+const metaAction = async (msg_or_msgs) => {
+  const msg = (msg_or_msgs instanceof Array) ? msg_or_msgs[0] : msg_or_msgs;
+
   if (msg.indexOf('$$') == 0) {
     let ret = {
       status: 'error:SERVER_META_ACTION_NOT_FOUND'
@@ -204,6 +216,7 @@ const playbackLogAction = async (cue, file = null) => {
 
       currentPlayer = new Worker('./worker.js');
       currentPlayer.on('message', (msg) => {
+        // TODO: r3pl format
         if (msg.key == 'main') {
           if (next[0] != undefined && msg.val >= parseInt(next[0].delta)) {
             switch (next[0].action) {
@@ -231,6 +244,7 @@ const playbackLogAction = async (cue, file = null) => {
             });
           }
         }
+        // --
       });
       ret = {
         status: 'success:PLAYBACK_STARTED',
@@ -299,6 +313,8 @@ io.on('connection', (socket) => {
     const ret = await metaAction(message).catch(console.error);
     const cnow = Date.now();
 
+    const msg = (message instanceof Array) ? message.shift() : message;
+
     if (ret && ret.status.indexOf('error') != 0) {
       //! server meta command
       switch (ret.action) {
@@ -322,7 +338,7 @@ io.on('connection', (socket) => {
       default:
         io.emit('new message', {
           username: `(server)`,
-          message: `${message} - ${JSON.stringify(ret)}`,
+          message: `${msg} - ${JSON.stringify(ret)}`,
           color: '#999',
           bus: '*'
         });
@@ -333,32 +349,46 @@ io.on('connection', (socket) => {
       //! server meta command w/ error
       socket.emit('new message', {
         username: `[server]`,
-        message: `${message} - ${JSON.stringify(ret)}`,
+        message: `${msg} - ${JSON.stringify(ret)}`,
         color: '#999',
         bus: '*'
       });
     } else {
       //! PCode
       const { bus = 0 } = options;
-      io.emit('new message', {
-        username: socket.username,
-        message,
-        bus,
-        timestamp: new Date(cnow)
-      });
+      io.emit(
+        'new message',
+        ((message instanceof Array) && (message.length > 0)) ? {
+          username: socket.username,
+          message: `${msg}`,
+          bus,
+          timestamp: new Date(cnow),
+          r: `${message[0]}`
+        } : {
+          username: socket.username,
+          message: msg,
+          bus,
+          timestamp: new Date(cnow)
+        }
+      );
     }
 
     if (currentLogger.writable && !ret) {
       const { bus = 0 } = options;
-
-      currentLogger.info(`${message}`, {
+      const meta = {
         username: socket.username,
         bus: parseInt(bus),
         //! timestamp is added automaticaly by winston
         // timestamp: new Date(cnow),
         delta: cnow - loggerStartAt,
         action: 'message'
-      });
+      };
+
+      if ((message instanceof Array) && message.length > 0) {
+        meta.r = `${message[0]}`;
+      }
+
+      currentLogger.info(`${msg}`, meta);
     }
   });
 
