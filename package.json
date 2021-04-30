@@ -1,6 +1,6 @@
 {
   "name": "p-code-playground",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "a simple runtime for p-code",
   "repository": "https://github.com/h4us/p-code-playground",
   "main": "index.js",
@@ -12,8 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@h4us/p-code": "https://github.com/h4us/p-code.git#experimental",
-    "@p-code-magazine/p-code": "^1.0.0",
+    "@p-code-magazine/p-code": "^1.1.0",
     "alpinejs": "^2.5.0",
     "cors": "^2.8.5",
     "express": "^4.17.1",
@@ -23,8 +22,8 @@
     "winston": "^3.3.3"
   },
   "devDependencies": {
-    "nodemon": "^2.0.4",
-    "webpack": "^4.43.0",
+    "nodemon": "^2.0.7",
+    "webpack": "^4.46.0",
     "webpack-cli": "^3.3.12"
   },
   "nodemonConfig": {

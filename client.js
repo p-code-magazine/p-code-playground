@@ -1,4 +1,4 @@
-import { PCode } from '@h4us/p-code';
+import { PCode } from '@p-code-magazine/p-code';
 import io from 'socket.io-client';
 import p5 from 'p5';
 import 'alpinejs';
