@@ -6,7 +6,13 @@ const path = require('path');
 const server = require('http').createServer(app);
 const io = require('socket.io')(server, {
   origins: (
-    process.env.NODE_ENV == 'development' ? ['http://localhost:3030', 'http://localhost:3000'] : ['https://r3pl-git-develop.inafact.vercel.app', 'https://r3pl.vercel.app']
+    process.env.NODE_ENV == 'development' ? [
+      'http://localhost:3030', 'http://localhost:3000'
+    ] : [
+      'https://r3pl-git-develop.inafact.vercel.app',
+      'https://r3pl.vercel.app',
+      'https://play.p-code-magazine.haus/',
+    ]
   )
 });
 const port = process.env.PORT || 3000;
@@ -36,7 +42,11 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors({
   origin: (
-    process.env.NODE_ENV == 'development' ? '*' : ['https://r3pl-git-develop.inafact.vercel.app', 'https://r3pl.vercel.app']
+    process.env.NODE_ENV == 'development' ? '*' : [
+      'https://r3pl-git-develop.inafact.vercel.app',
+      'https://r3pl.vercel.app',
+      'https://play.p-code-magazine.haus/',
+    ]
   ),
   credentials: true,
   // optionsSuccessStatus: 200
