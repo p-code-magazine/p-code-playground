@@ -11,7 +11,7 @@ const io = require('socket.io')(server, {
     ] : [
       'https://r3pl-git-develop.inafact.vercel.app',
       'https://r3pl.vercel.app',
-      'https://play.p-code-magazine.haus/',
+      'https://play.p-code-magazine.haus',
     ]
   )
 });
@@ -45,7 +45,7 @@ app.use(cors({
     process.env.NODE_ENV == 'development' ? '*' : [
       'https://r3pl-git-develop.inafact.vercel.app',
       'https://r3pl.vercel.app',
-      'https://play.p-code-magazine.haus/',
+      'https://play.p-code-magazine.haus',
     ]
   ),
   credentials: true,
