@@ -96,7 +96,9 @@ window.appComponents = {
         };
 
         this.p5s = new p5(ctx);
-        this.sio = io();
+        // TODO: temporary fix
+        this.sio = io({ transports: ['websocket'] });
+        // --
 
         this.sio.on('login', (data) => {
           this.numUsers = data.numUsers;
