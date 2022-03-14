@@ -22,7 +22,7 @@ const { Worker } = require('worker_threads');
 
 const winston = require('winston');
 const { format } = winston;
-const { combine, timestamp, label, json } = format;
+const { combine, timestamp, json } = format;
 
 const container = new winston.Container();
 const logsPath = path.resolve(__dirname, 'logs');
@@ -30,7 +30,6 @@ const logsPath = path.resolve(__dirname, 'logs');
 let loggerStartAt = Date.now();
 let currentLogger = false;
 let currentPlayer = false;
-let numUsers = 0;
 
 console.log(process.env.NODE_ENV);
 
@@ -240,7 +239,7 @@ const playbackLogAction = async (cue, file = null) => {
                 message: next[0].message,
                 timestamp: next[0].timestamp,
                 bus: next[0].bus,
-                numUsers: Object.keys(io.sockets.connected).length
+                numUsers: io.sockets.sockets.size
               });
               break;
             }
@@ -301,7 +300,8 @@ app.post('/join', async (req, res, next) => {
 io.on('connection', (socket) => {
   let addedUser = false;
 
-  console.log('clients:', Object.keys(io.sockets.connected).length);
+  // console.log(io.sockets.sockets);
+  console.log('clients:', io.sockets.sockets.size);
 
   socket.on('add user', (username) => {
     if (addedUser) return;
@@ -310,12 +310,12 @@ io.on('connection', (socket) => {
     addedUser = true;
 
     socket.emit('login', {
-      numUsers: Object.keys(io.sockets.connected).length
+      numUsers: io.sockets.sockets.size
     });
 
     socket.broadcast.emit('user joined', {
       username: socket.username,
-      numUsers: Object.keys(io.sockets.connected).length
+      numUsers: io.sockets.sockets.size
     });
 
     recordLogAction(1);
@@ -409,21 +409,21 @@ io.on('connection', (socket) => {
   socket.on('typing', () => {
     socket.broadcast.emit('typing', {
       username: socket.username,
-      numUsers: Object.keys(io.sockets.connected).length
+      numUsers: io.sockets.sockets.size
     });
   });
 
   socket.on('disconnect', () => {
-    console.log('active clients:', Object.keys(io.sockets.connected).length);
+    console.log('active clients:', io.sockets.sockets.size);
 
     if (addedUser) {
       socket.broadcast.emit('user left', {
         username: socket.username,
-        numUsers: Object.keys(io.sockets.connected).length
+        numUsers: io.sockets.sockets.size
       });
     }
 
-    if (Object.keys(io.sockets.connected).length == 0 && currentLogger) {
+    if (io.sockets.sockets.size == 0 && currentLogger) {
       currentLogger.end();
       container.close(`session-${loggerStartAt}`);
       currentLogger = false;
