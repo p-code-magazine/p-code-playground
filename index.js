@@ -5,15 +5,19 @@ const cors = require('cors');
 const path = require('path');
 const server = require('http').createServer(app);
 const io = require('socket.io')(server, {
-  origins: (
-    process.env.NODE_ENV == 'development' ? [
-      'http://localhost:8080', 'http://localhost:3000'
-    ] : [
-      'https://r3pl-git-develop.inafact.vercel.app',
-      'https://r3pl.vercel.app',
-      'https://play.p-code-magazine.haus',
-    ]
-  )
+  cors: {
+    origin: (
+      process.env.NODE_ENV == 'development' ? [
+        'http://localhost:8080', 'http://localhost:3000'
+      ] : [
+        'https://r3pl-git-develop.inafact.vercel.app',
+        'https://r3pl.vercel.app',
+        'https://play.p-code-magazine.haus',
+      ]
+    ),
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
 });
 const port = process.env.PORT || 8080;
 
@@ -68,24 +72,24 @@ const metaAction = async (msg_or_msgs) => {
         let args = args_raw.length > 1 ? args_raw[1] : '';
         let args_sep = (args.indexOf(',') == -1) ? [args, ''] : args.split(',');
 
-        switch(cmdBase[1]) {
-        case 'L':
-          ret = await showLogsAction();
-          break;
-        case 'R':
-          ret = recordLogAction(args);
-          break;
-        case 'P':
-          ret = await playbackLogAction(args_sep[0], args_sep[1]);
-          break;
-        case 'H':
-          const [a1 = '', a2 = 1] = args_sep;
-          const dt = new Date(a1);
-          ret = await queryLogAction({
-            until: (dt.toString() === 'Invalid Date') ? Date.now() : (dt - 1),
-            limit: a2
-          });
-          break;
+        switch (cmdBase[1]) {
+          case 'L':
+            ret = await showLogsAction();
+            break;
+          case 'R':
+            ret = recordLogAction(args);
+            break;
+          case 'P':
+            ret = await playbackLogAction(args_sep[0], args_sep[1]);
+            break;
+          case 'H':
+            const [a1 = '', a2 = 1] = args_sep;
+            const dt = new Date(a1);
+            ret = await queryLogAction({
+              until: (dt.toString() === 'Invalid Date') ? Date.now() : (dt - 1),
+              limit: a2
+            });
+            break;
         }
 
         ret['action'] = cmdBase[1];
@@ -110,7 +114,7 @@ const showLogsAction = async (ext = '.log') => {
       status: 'success',
       data: fd.filter((el) => r.test(el))
     };
-  } catch(err) {
+  } catch (err) {
     console.error(err);
   }
 
@@ -136,7 +140,7 @@ const queryLogAction = async (q) => {
           reject(Object.assign(ret, { data: err }));
         }
 
-        resolve(Object.assign(ret, { status: 'success',  data: results }));
+        resolve(Object.assign(ret, { status: 'success', data: results }));
       });
     });
   }
@@ -233,15 +237,15 @@ const playbackLogAction = async (cue, file = null) => {
         if (msg.key == 'main') {
           if (next[0] != undefined && msg.val >= parseInt(next[0].delta)) {
             switch (next[0].action) {
-            case 'message':
-              io.emit('new message', {
-                username: `[${file ? file : 'current session'}] ${next[0].username}`,
-                message: next[0].message,
-                timestamp: next[0].timestamp,
-                bus: next[0].bus,
-                numUsers: io.sockets.sockets.size
-              });
-              break;
+              case 'message':
+                io.emit('new message', {
+                  username: `[${file ? file : 'current session'}] ${next[0].username}`,
+                  message: next[0].message,
+                  timestamp: next[0].timestamp,
+                  bus: next[0].bus,
+                  numUsers: io.sockets.sockets.size
+                });
+                break;
             }
             next.splice(0, 1, rdarr.pop());
           }
@@ -271,7 +275,7 @@ const playbackLogAction = async (cue, file = null) => {
         file
       };
     }
-  } catch(err) {
+  } catch (err) {
     console.error(err);
   }
 
@@ -332,31 +336,31 @@ io.on('connection', (socket) => {
     if (ret && ret.status.indexOf('error') != 0) {
       //! server meta command
       switch (ret.action) {
-      case 'H':
-        const { data: logdata } = ret;
-        const { file: entry = [] } = logdata;
-        socket.emit('reply command', {
-          action: ret.action,
-          message: entry
-        });
-        break;
-      case 'L':
-        const { data: files } = ret;
-        socket.emit('new message', {
-          username: `[server]`,
-          message: JSON.stringify(files),
-          color: '#999',
-          bus: '*'
-        });
-        break;
-      default:
-        io.emit('new message', {
-          username: `(server)`,
-          message: `${msg} - ${JSON.stringify(ret)}`,
-          color: '#999',
-          bus: '*'
-        });
-        break;
+        case 'H':
+          const { data: logdata } = ret;
+          const { file: entry = [] } = logdata;
+          socket.emit('reply command', {
+            action: ret.action,
+            message: entry
+          });
+          break;
+        case 'L':
+          const { data: files } = ret;
+          socket.emit('new message', {
+            username: `[server]`,
+            message: JSON.stringify(files),
+            color: '#999',
+            bus: '*'
+          });
+          break;
+        default:
+          io.emit('new message', {
+            username: `(server)`,
+            message: `${msg} - ${JSON.stringify(ret)}`,
+            color: '#999',
+            bus: '*'
+          });
+          break;
       }
       //
     } else if (ret && ret.status.indexOf('error') == 0) {
