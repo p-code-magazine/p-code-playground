@@ -7,7 +7,7 @@ const server = require('http').createServer(app);
 const io = require('socket.io')(server, {
   origins: (
     process.env.NODE_ENV == 'development' ? [
-      'http://localhost:3030', 'http://localhost:3000'
+      'http://localhost:8080', 'http://localhost:3000'
     ] : [
       'https://r3pl-git-develop.inafact.vercel.app',
       'https://r3pl.vercel.app',
@@ -15,7 +15,7 @@ const io = require('socket.io')(server, {
     ]
   )
 });
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8080;
 
 const { readFile, readdir } = require('fs').promises;
 const { Worker } = require('worker_threads');

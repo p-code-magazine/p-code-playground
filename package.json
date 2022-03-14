@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "start": "webpack --env.production && node index.js",
-    "dev": "webpack --watch --env.development & NODE_ENV=development PORT=3030 nodemon index.js",
+    "dev": "webpack --watch --env.development & NODE_ENV=development PORT=8080 nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
